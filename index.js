@@ -1,8 +1,13 @@
 // 주요 클래스 가져오기
-const { Client, Events, GatewayIntentBits } = require('discord.js');
-const cron = require('node-cron');
-const { STUDY_CHANNEL_ID, token } = require('./config.json');
-const express = require('express');
+import { Client, Events, GatewayIntentBits } from 'discord.js';
+import cron from 'node-cron';
+import express from 'express';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
+const DISCORD_LOGIN_TOKEN = process.env.DISCORD_LOGIN_TOKEN;
 const app = express();
 const PORT = 8080;
 
@@ -15,15 +20,15 @@ const client = new Client({ intents: [
     GatewayIntentBits.MessageContent,
 ]});
 
-MONDAY_MESSAGE = '@everyone 토요일 목표는 다 했어? 오늘은 뭐 할거야?';
-SCHEDULE_MESSAGE = '@everyone 어제 목표는 다 했어? 오늘은 뭐 할거야?';
+const MONDAY_MESSAGE = '@everyone 토요일 목표는 다 했어? 오늘은 뭐 할거야?';
+const SCHEDULE_MESSAGE = '@everyone 어제 목표는 다 했어? 오늘은 뭐 할거야?';
 
 // 봇이 준비됐을때 한번만(once) 표시할 메시지
 client.once(Events.ClientReady, readyClient => {
     console.log(`${readyClient.user.tag}이 로그인했다.`);
 
     cron.schedule('30 17 * * 1', async () => {
-        const channel = await client.channels.fetch(STUDY_CHANNEL_ID);
+        const channel = await client.channels.fetch(DISCORD_CHANNEL_ID);
         if (channel) {
             await channel.send(MONDAY_MESSAGE);
         }
@@ -32,7 +37,7 @@ client.once(Events.ClientReady, readyClient => {
     });
 
     cron.schedule('30 17 * * 2-5', async () => {
-        const channel = await client.channels.fetch(STUDY_CHANNEL_ID);
+        const channel = await client.channels.fetch(DISCORD_CHANNEL_ID);
         if (channel) {
             await channel.send(SCHEDULE_MESSAGE);
         }
@@ -41,7 +46,7 @@ client.once(Events.ClientReady, readyClient => {
     });
 
     cron.schedule('0 12 * * 6', async () => {
-        const channel = await client.channels.fetch(STUDY_CHANNEL_ID);
+        const channel = await client.channels.fetch(DISCORD_CHANNEL_ID);
         if (channel) {
             await channel.send(SCHEDULE_MESSAGE);
         }
@@ -62,7 +67,7 @@ app.post('/send-message', async (req, res) => {
         return res.status(400).send('Message is required');
     }
 
-    const channel = await client.channels.fetch(STUDY_CHANNEL_ID);
+    const channel = await client.channels.fetch(DISCORD_CHANNEL_ID);
     if (channel) {
         await channel.send(message);
         res.send('Message sent!');
@@ -80,4 +85,4 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 
 // 시크릿키(토큰)을 통해 봇 로그인 실행
-client.login(token);
+client.login(DISCORD_LOGIN_TOKEN);

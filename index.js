@@ -24,8 +24,13 @@ const MONDAY_MESSAGE = '@everyone 토요일 목표는 다 했어? 오늘은 뭐 
 const SCHEDULE_MESSAGE = '@everyone 어제 목표는 다 했어? 오늘은 뭐 할거야?';
 
 // 봇이 준비됐을때 한번만(once) 표시할 메시지
-client.once(Events.ClientReady, readyClient => {
+client.once(Events.ClientReady, async readyClient => {
     console.log(`${readyClient.user.tag}이 로그인했다.`);
+    
+    const channel = await client.channels.fetch(DISCORD_CHANNEL_ID);
+    if (channel) {
+        await channel.send('다빈이 로그인했다!');
+    }
 
     cron.schedule('30 17 * * 1', async () => {
         const channel = await client.channels.fetch(DISCORD_CHANNEL_ID);

@@ -61,8 +61,8 @@ client.once(Events.ClientReady, async readyClient => {
 });
 
 client.on('messageCreate', async message => {
-    if (message.content === '다빈아 안녕!') {
-        await message.channel.send('안녕!');
+    if (message.content.includes('다빈')) {
+        await message.channel.send('나 불렀어?');
     }
 });
 

@@ -2,6 +2,11 @@
 const { Client, Events, GatewayIntentBits } = require('discord.js');
 const cron = require('node-cron');
 const { STUDY_CHANNEL_ID, token } = require('./config.json');
+const express = require('express');
+const app = express();
+const PORT = 8080;
+
+app.use(express.json());
 
 // 클라이언트 객체 생성 (Guilds관련, 메시지관련 인텐트 추가)
 const client = new Client({ intents: [
@@ -49,6 +54,29 @@ client.on('messageCreate', async message => {
     if (message.content === '다빈아 안녕?') {
         await message.channel.send('안녕!');
     }
+});
+
+app.post('/send-message', async (req, res) => {
+    const { message } = req.body;
+    if (!message) {
+        return res.status(400).send('Message is required');
+    }
+
+    const channel = await client.channels.fetch(STUDY_CHANNEL_ID);
+    if (channel) {
+        await channel.send(message);
+        res.send('Message sent!');
+    } else {
+        res.status(404).send('Channel not found');
+    }
+});
+
+app.get('/health', (req, res) => {
+    res.sendStatus(200);
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server is running on port ${PORT}`);
 });
 
 // 시크릿키(토큰)을 통해 봇 로그인 실행

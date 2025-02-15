@@ -61,7 +61,7 @@ client.once(Events.ClientReady, async readyClient => {
 });
 
 client.on('messageCreate', async message => {
-    if (message.content.includes('다빈')) {
+    if (message.mentions.has(client.user)) {
         await message.channel.send('나 불렀어?');
     }
 });

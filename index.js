@@ -3,11 +3,13 @@ import { Client, Events, GatewayIntentBits } from 'discord.js';
 import cron from 'node-cron';
 import express from 'express';
 import dotenv from 'dotenv';
+import OpenAI from 'openai';
 
 dotenv.config();
 
 const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
 const DISCORD_LOGIN_TOKEN = process.env.DISCORD_LOGIN_TOKEN;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const app = express();
 const PORT = 8080;
 
@@ -19,6 +21,10 @@ const client = new Client({ intents: [
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
 ]});
+
+const openai = new OpenAI({
+    apiKey: OPENAI_API_KEY,
+});
 
 const MONDAY_MESSAGE = '@everyone 토요일 목표는 다 했어? 오늘은 뭐 할거야?';
 const SCHEDULE_MESSAGE = '@everyone 어제 목표는 다 했어? 오늘은 뭐 할거야?';
@@ -64,7 +70,23 @@ client.on('messageCreate', async message => {
     if (message.author.bot) return;
 
     if (message.mentions.has(client.user)) {
-        await message.channel.send('나 불렀어?');
+        const prompt = message.content.replace(`<@${client.user.id}>`, '').trim();
+        if (prompt) {
+            try {
+                const params = {
+                    messages: [{ role: 'user', content: prompt }],
+                    model: 'gpt-4o',
+                  };
+                  const chatCompletion = await openai.chat.completions.create(params);
+                  const reply = chatCompletion.choices[0].message.content;
+                await message.channel.send(reply);
+            } catch (error) {
+                console.error('Error with OpenAI API:', error);
+                await message.channel.send('OpenAI API 호출 중 문제가 발생했어.');
+            }
+        } else {
+            await message.channel.send('나 불렀어?');
+        }
     }
 });
 

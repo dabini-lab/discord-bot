@@ -12,6 +12,7 @@ const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
 const DISCORD_LOGIN_TOKEN = process.env.DISCORD_LOGIN_TOKEN;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ENGINE_URL = process.env.ENGINE_URL;
+const ENGINE_TOKEN = process.env.ENGINE_TOKEN;
 const app = express();
 const PORT = 8080;
 
@@ -79,7 +80,11 @@ client.on('messageCreate', async message => {
                     messages: [prompt],
                     thread_id: DISCORD_CHANNEL_ID,
                 };
-                const response = await axios.post(`${ENGINE_URL}/messages`, requestBody);
+                const response = await axios.post(`${ENGINE_URL}/messages`, requestBody, {
+                    headers: {
+                        Authorization: `Bearer ${ENGINE_TOKEN}`
+                    }
+                });
                 const reply = response.data.response.content;
                 await message.channel.send(reply);
             } catch (error) {

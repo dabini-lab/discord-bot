@@ -4,12 +4,14 @@ import cron from 'node-cron';
 import express from 'express';
 import dotenv from 'dotenv';
 import OpenAI from 'openai';
+import axios from 'axios';
 
 dotenv.config();
 
 const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
 const DISCORD_LOGIN_TOKEN = process.env.DISCORD_LOGIN_TOKEN;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const ENGINE_URL = process.env.ENGINE_URL;
 const app = express();
 const PORT = 8080;
 
@@ -73,16 +75,16 @@ client.on('messageCreate', async message => {
         const prompt = message.content.replace(`<@${client.user.id}>`, '').trim();
         if (prompt) {
             try {
-                const params = {
-                    messages: [{ role: 'user', content: prompt }],
-                    model: 'gpt-4o',
-                  };
-                  const chatCompletion = await openai.chat.completions.create(params);
-                  const reply = chatCompletion.choices[0].message.content;
+                const requestBody = {
+                    messages: [prompt],
+                    thread_id: DISCORD_CHANNEL_ID,
+                };
+                const response = await axios.post(`${ENGINE_URL}/messages`, requestBody);
+                const reply = response.data.response.content;
                 await message.channel.send(reply);
             } catch (error) {
-                console.error('Error with OpenAI API:', error);
-                await message.channel.send('OpenAI API 호출 중 문제가 발생했어.');
+                console.error('Error with engine API:', error);
+                await message.channel.send('Engine API 호출 중 문제가 발생했어.');
             }
         } else {
             await message.channel.send('나 불렀어?');

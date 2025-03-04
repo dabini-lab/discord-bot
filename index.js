@@ -29,7 +29,7 @@ client.on('messageCreate', async message => {
     if (message.mentions.has(client.user)) {
         // Replace all user and role mentions with their names
         let prompt = message.content;
-        
+
         // Replace user mentions
         const userMentions = Array.from(message.mentions.users.values());
         for (const user of userMentions) {
@@ -64,6 +64,7 @@ client.on('messageCreate', async message => {
             const requestBody = {
                 messages: [prompt],
                 thread_id: DISCORD_CHANNEL_ID,
+                speaker_name: message.author.displayName || message.author.username,
             };
             const response = await client.request({
                 url: `${ENGINE_URL}/messages`,

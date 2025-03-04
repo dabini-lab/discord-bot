@@ -68,7 +68,33 @@ client.on('messageCreate', async message => {
     if (message.author.bot) return;
 
     if (message.mentions.has(client.user)) {
-        const prompt = message.content.replace(`<@${client.user.id}>`, '').trim();
+        // Replace all user and role mentions with their names
+        let prompt = message.content;
+        
+        // Replace user mentions
+        const userMentions = Array.from(message.mentions.users.values());
+        for (const user of userMentions) {
+            const member = message.guild.members.cache.get(user.id);
+            const displayName = member?.displayName || user.username;
+            const userMentionRegex = new RegExp(`<@!?${user.id}>`, 'g');
+            prompt = prompt.replace(userMentionRegex, displayName);
+        }
+
+        // Replace role mentions
+        const roleMentions = Array.from(message.mentions.roles.values());
+        for (const role of roleMentions) {
+            const roleMentionRegex = new RegExp(`<@&${role.id}>`, 'g');
+            prompt = prompt.replace(roleMentionRegex, `@${role.name}`);
+        }
+
+        // Replace @everyone and @here
+        prompt = prompt.replace(/@everyone/g, '모두');
+        prompt = prompt.replace(/@here/g, '여기있는사람들');
+
+        prompt = prompt.trim();
+        console.log('Original message:', message.content);
+        console.log('Processed prompt:', prompt);
+
         if (prompt) {
             try {
                 const client = await auth.getIdTokenClient(ENGINE_URL);

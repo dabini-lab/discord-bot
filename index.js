@@ -1,6 +1,5 @@
 // 주요 클래스 가져오기
-import { Client, Events, GatewayIntentBits } from 'discord.js';
-import cron from 'node-cron';
+import { Client, GatewayIntentBits } from 'discord.js';
 import express from 'express';
 import dotenv from 'dotenv';
 import { GoogleAuth } from 'google-auth-library';
@@ -21,46 +20,6 @@ const client = new Client({ intents: [
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
 ]});
-
-const MONDAY_MESSAGE = '@everyone 토요일 목표는 다 했어? 오늘은 뭐 할거야?';
-const SCHEDULE_MESSAGE = '@everyone 어제 목표는 다 했어? 오늘은 뭐 할거야?';
-
-// 봇이 준비됐을때 한번만(once) 표시할 메시지
-client.once(Events.ClientReady, async readyClient => {
-    console.log(`${readyClient.user.tag}이 로그인했다.`);
-    
-    const channel = await client.channels.fetch(DISCORD_CHANNEL_ID);
-    if (channel) {
-        await channel.send('다빈이 로그인했다!');
-    }
-
-    cron.schedule('30 17 * * 1', async () => {
-        const channel = await client.channels.fetch(DISCORD_CHANNEL_ID);
-        if (channel) {
-            await channel.send(MONDAY_MESSAGE);
-        }
-    }, {
-        timezone: 'Asia/Seoul'
-    });
-
-    cron.schedule('30 17 * * 2-5', async () => {
-        const channel = await client.channels.fetch(DISCORD_CHANNEL_ID);
-        if (channel) {
-            await channel.send(SCHEDULE_MESSAGE);
-        }
-    }, {
-        timezone: 'Asia/Seoul'
-    });
-
-    cron.schedule('0 12 * * 6', async () => {
-        const channel = await client.channels.fetch(DISCORD_CHANNEL_ID);
-        if (channel) {
-            await channel.send(SCHEDULE_MESSAGE);
-        }
-    }, {
-        timezone: 'Asia/Seoul'
-    });
-});
 
 const auth = new GoogleAuth();
 
@@ -95,42 +54,28 @@ client.on('messageCreate', async message => {
         console.log('Original message:', message.content);
         console.log('Processed prompt:', prompt);
 
-        if (prompt) {
-            try {
-                const client = await auth.getIdTokenClient(ENGINE_URL);
-                const requestBody = {
-                    messages: [prompt],
-                    thread_id: DISCORD_CHANNEL_ID,
-                };
-                const response = await client.request({
-                    url: `${ENGINE_URL}/messages`,
-                    method: 'POST',
-                    data: requestBody
-                });
-                const reply = response.data.response.content;
-                await message.channel.send(reply);
-            } catch (error) {
-                console.error('Error with engine API:', error);
-                await message.channel.send('Engine API 호출 중 문제가 발생했어.');
-            }
-        } else {
-            await message.channel.send('나 불렀어?');
+        // if prompt is empty
+        if (!prompt) {
+            return;
         }
-    }
-});
 
-app.post('/send-message', async (req, res) => {
-    const { message } = req.body;
-    if (!message) {
-        return res.status(400).send('Message is required');
-    }
-
-    const channel = await client.channels.fetch(DISCORD_CHANNEL_ID);
-    if (channel) {
-        await channel.send(message);
-        res.send('Message sent!');
-    } else {
-        res.status(404).send('Channel not found');
+        try {
+            const client = await auth.getIdTokenClient(ENGINE_URL);
+            const requestBody = {
+                messages: [prompt],
+                thread_id: DISCORD_CHANNEL_ID,
+            };
+            const response = await client.request({
+                url: `${ENGINE_URL}/messages`,
+                method: 'POST',
+                data: requestBody
+            });
+            const reply = response.data.response.content;
+            await message.channel.send(reply);
+        } catch (error) {
+            console.error('Error with engine API:', error);
+            await message.channel.send('Engine API 호출 중 문제가 발생했어.');
+        }
     }
 });
 

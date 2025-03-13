@@ -23,6 +23,14 @@ const client = new Client({
 });
 
 const auth = new GoogleAuth();
+let engineClient;
+
+// Initialize the engine client
+async function initializeEngineClient() {
+  engineClient = await auth.getIdTokenClient(ENGINE_URL);
+}
+
+initializeEngineClient().catch(console.error);
 
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
@@ -61,13 +69,12 @@ client.on("messageCreate", async (message) => {
     }
 
     try {
-      const client = await auth.getIdTokenClient(ENGINE_URL);
       const requestBody = {
         messages: [prompt],
-        thread_id: message.channel.id,
+        thread_id: `discord-${message.channel.id}`,
         speaker_name: message.author.displayName || message.author.username,
       };
-      const response = await client.request({
+      const response = await engineClient.request({
         url: `${ENGINE_URL}/messages`,
         method: "POST",
         data: requestBody,

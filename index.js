@@ -32,6 +32,59 @@ async function initializeEngineClient() {
 
 initializeEngineClient().catch(console.error);
 
+// Add this helper function before the messageCreate event handler
+function splitMessage(text, maxLength = 2000) {
+  const chunks = [];
+  let currentChunk = '';
+  let inCodeBlock = false;
+  let codeBlockLanguage = '';
+
+  const lines = text.split('\n');
+  
+  for (const line of lines) {
+    // Detect code block start
+    if (line.startsWith('```')) {
+      inCodeBlock = true;
+      codeBlockLanguage = line.slice(3);
+      currentChunk += line + '\n';
+      continue;
+    }
+    
+    // Detect code block end
+    if (line === '```' && inCodeBlock) {
+      inCodeBlock = false;
+      
+      // If adding the closing tag would exceed limit, start new chunk
+      if (currentChunk.length + line.length > maxLength) {
+        chunks.push(currentChunk + '```'); // Close the current code block
+        currentChunk = '```' + codeBlockLanguage + '\n'; // Start new code block with same language
+      }
+      
+      currentChunk += line + '\n';
+      continue;
+    }
+
+    // Handle content (both inside and outside code blocks)
+    if (currentChunk.length + line.length + 1 > maxLength) {
+      if (inCodeBlock) {
+        chunks.push(currentChunk + '```'); // Close current code block
+        currentChunk = '```' + codeBlockLanguage + '\n' + line + '\n'; // Start new with same language
+      } else {
+        chunks.push(currentChunk.trim());
+        currentChunk = line + '\n';
+      }
+    } else {
+      currentChunk += line + '\n';
+    }
+  }
+
+  if (currentChunk) {
+    chunks.push(currentChunk.trim());
+  }
+
+  return chunks;
+}
+
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
 
@@ -80,7 +133,10 @@ client.on("messageCreate", async (message) => {
         data: requestBody,
       });
       const reply = response.data.response.content;
-      await message.channel.send(reply);
+      const chunks = splitMessage(reply);
+      for (const chunk of chunks) {
+        await message.channel.send(chunk);
+      }
     } catch (error) {
       console.error("Error with engine API:", error);
       await message.channel.send("Engine API 호출 중 문제가 발생했어.");

@@ -125,7 +125,7 @@ client.on("messageCreate", async (message) => {
       const requestBody = {
         messages: [prompt],
         thread_id: `discord-${message.channel.id}`,
-        speaker_name: message.author.displayName || message.author.username,
+        speaker_name: message.member.displayName || message.member.user.username,
       };
       const response = await engineClient.request({
         url: `${ENGINE_URL}/messages`,

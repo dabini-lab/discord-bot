@@ -35,46 +35,46 @@ initializeEngineClient().catch(console.error);
 // Add this helper function before the messageCreate event handler
 function splitMessage(text, maxLength = 2000) {
   const chunks = [];
-  let currentChunk = '';
+  let currentChunk = "";
   let inCodeBlock = false;
-  let codeBlockLanguage = '';
+  let codeBlockLanguage = "";
 
-  const lines = text.split('\n');
-  
+  const lines = text.split("\n");
+
   for (const line of lines) {
     // Detect code block start
-    if (line.startsWith('```')) {
+    if (line.startsWith("```")) {
       inCodeBlock = true;
       codeBlockLanguage = line.slice(3);
-      currentChunk += line + '\n';
+      currentChunk += line + "\n";
       continue;
     }
-    
+
     // Detect code block end
-    if (line === '```' && inCodeBlock) {
+    if (line === "```" && inCodeBlock) {
       inCodeBlock = false;
-      
+
       // If adding the closing tag would exceed limit, start new chunk
       if (currentChunk.length + line.length > maxLength) {
-        chunks.push(currentChunk + '```'); // Close the current code block
-        currentChunk = '```' + codeBlockLanguage + '\n'; // Start new code block with same language
+        chunks.push(currentChunk + "```"); // Close the current code block
+        currentChunk = "```" + codeBlockLanguage + "\n"; // Start new code block with same language
       }
-      
-      currentChunk += line + '\n';
+
+      currentChunk += line + "\n";
       continue;
     }
 
     // Handle content (both inside and outside code blocks)
     if (currentChunk.length + line.length + 1 > maxLength) {
       if (inCodeBlock) {
-        chunks.push(currentChunk + '```'); // Close current code block
-        currentChunk = '```' + codeBlockLanguage + '\n' + line + '\n'; // Start new with same language
+        chunks.push(currentChunk + "```"); // Close current code block
+        currentChunk = "```" + codeBlockLanguage + "\n" + line + "\n"; // Start new with same language
       } else {
         chunks.push(currentChunk.trim());
-        currentChunk = line + '\n';
+        currentChunk = line + "\n";
       }
     } else {
-      currentChunk += line + '\n';
+      currentChunk += line + "\n";
     }
   }
 
@@ -124,8 +124,9 @@ client.on("messageCreate", async (message) => {
     try {
       const requestBody = {
         messages: [prompt],
-        thread_id: `discord-${message.channel.id}`,
-        speaker_name: message.member.displayName || message.member.user.username,
+        session_id: `discord-${message.channel.id}`,
+        speaker_name:
+          message.member.displayName || message.member.user.username,
       };
       const response = await engineClient.request({
         url: `${ENGINE_URL}/messages`,

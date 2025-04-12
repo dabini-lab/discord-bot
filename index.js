@@ -3,6 +3,7 @@ import { Client, GatewayIntentBits, EmbedBuilder } from "discord.js";
 import express from "express";
 import dotenv from "dotenv";
 import { GoogleAuth } from "google-auth-library";
+import { translations, defaultLanguage } from "./translations.js";
 
 dotenv.config();
 
@@ -135,12 +136,14 @@ client.on("messageCreate", async (message) => {
       });
 
       // Get the text response
-      const reply = response.data.response.content;
+      const replies = response.data.messages;
 
-      // Send the text response in chunks
-      const chunks = splitMessage(reply);
-      for (const chunk of chunks) {
-        await message.channel.send(chunk);
+      for (const reply of replies) {
+        // Send the text response in chunks
+        const chunks = splitMessage(reply);
+        for (const chunk of chunks) {
+          await message.channel.send(chunk);
+        }
       }
 
       // Check if stock info exists and create embeds
@@ -149,18 +152,25 @@ client.on("messageCreate", async (message) => {
           const changeSymbol = stock.change >= 0 ? "▲" : "▼";
           const changeColor = stock.change >= 0 ? 0x00ff00 : 0xff0000; // Green for positive, red for negative
 
+          // Get user's preferred language from guild settings or fall back to default
+          const userLocale = message.guild?.preferredLocale || defaultLanguage;
+          // Get the first part of the locale (e.g., 'en-US' -> 'en')
+          const langCode = userLocale.split("-")[0];
+          // Get translations for user's language or fall back to default
+          const lang = translations[langCode] || translations[defaultLanguage];
+
           const embed = new EmbedBuilder()
             .setColor(changeColor)
             .setTitle(`${stock.company_name} (${stock.ticker})`)
-            .setURL(stock.yahoo_finance_url)
+            .setURL(stock.url)
             .addFields(
               {
-                name: "가격",
+                name: lang.price,
                 value: `${stock.price} ${stock.currency}`,
                 inline: true,
               },
               {
-                name: "변동",
+                name: lang.change,
                 value: `${changeSymbol} ${Math.abs(stock.change).toFixed(
                   2
                 )} (${Math.abs(stock.change_percentage).toFixed(2)}%)`,
@@ -168,9 +178,9 @@ client.on("messageCreate", async (message) => {
               }
             )
             .setFooter({
-              text: `마지막 업데이트: ${new Date(
+              text: `${lang.lastUpdated}: ${new Date(
                 stock.timestamp
-              ).toLocaleString()}`,
+              ).toLocaleString(userLocale)}`,
             });
 
           await message.channel.send({ embeds: [embed] });

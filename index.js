@@ -1,15 +1,16 @@
 // 주요 클래스 가져오기
-import { Client, GatewayIntentBits } from "discord.js";
+import { Client, GatewayIntentBits, EmbedBuilder } from "discord.js";
 import express from "express";
 import dotenv from "dotenv";
 import { GoogleAuth } from "google-auth-library";
+import { translations, defaultLanguage } from "./translations.js";
 
 dotenv.config();
 
 const DISCORD_LOGIN_TOKEN = process.env.DISCORD_LOGIN_TOKEN;
 const ENGINE_URL = process.env.ENGINE_URL;
 const app = express();
-const PORT = 8080;
+const PORT = process.env.PORT || 8080;
 
 app.use(express.json());
 
@@ -133,10 +134,57 @@ client.on("messageCreate", async (message) => {
         method: "POST",
         data: requestBody,
       });
-      const reply = response.data.response.content;
-      const chunks = splitMessage(reply);
-      for (const chunk of chunks) {
-        await message.channel.send(chunk);
+
+      // Get the text response
+      const replies = response.data.messages;
+
+      for (const reply of replies) {
+        // Send the text response in chunks
+        const chunks = splitMessage(reply);
+        for (const chunk of chunks) {
+          await message.channel.send(chunk);
+        }
+      }
+
+      // Check if stock info exists and create embeds
+      if (response.data.stock_info && response.data.stock_info.length > 0) {
+        for (const stock of response.data.stock_info) {
+          const changeSymbol = stock.change >= 0 ? "▲" : "▼";
+          const changeColor = stock.change >= 0 ? 0x00ff00 : 0xff0000; // Green for positive, red for negative
+
+          // Get user's preferred language from guild settings or fall back to default
+          const userLocale = message.guild?.preferredLocale || defaultLanguage;
+          // Get the first part of the locale (e.g., 'en-US' -> 'en')
+          const langCode = userLocale.split("-")[0];
+          // Get translations for user's language or fall back to default
+          const lang = translations[langCode] || translations[defaultLanguage];
+
+          const embed = new EmbedBuilder()
+            .setColor(changeColor)
+            .setTitle(`${stock.company_name} (${stock.ticker})`)
+            .setURL(stock.url)
+            .addFields(
+              {
+                name: lang.price,
+                value: `${stock.price} ${stock.currency}`,
+                inline: true,
+              },
+              {
+                name: lang.change,
+                value: `${changeSymbol} ${Math.abs(stock.change).toFixed(
+                  2
+                )} (${Math.abs(stock.change_percentage).toFixed(2)}%)`,
+                inline: true,
+              }
+            )
+            .setFooter({
+              text: `${lang.lastUpdated}: ${new Date(
+                stock.timestamp
+              ).toLocaleString(userLocale)}`,
+            });
+
+          await message.channel.send({ embeds: [embed] });
+        }
       }
     } catch (error) {
       console.error("Error with engine API:", error);

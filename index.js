@@ -5,6 +5,16 @@ import dotenv from "dotenv";
 import { GoogleAuth } from "google-auth-library";
 import { translations, defaultLanguage } from "./translations.js";
 
+// Add a map to store guild timezone preferences
+const guildTimezones = new Map();
+// Default timezone if none is set
+const DEFAULT_TIMEZONE = "UTC";
+
+// Function to get timezone for a guild
+function getGuildTimezone(guildId) {
+  return guildTimezones.get(guildId) || DEFAULT_TIMEZONE;
+}
+
 dotenv.config();
 
 const DISCORD_LOGIN_TOKEN = process.env.DISCORD_LOGIN_TOKEN;
@@ -180,7 +190,10 @@ client.on("messageCreate", async (message) => {
             .setFooter({
               text: `${lang.lastUpdated}: ${new Date(
                 stock.timestamp
-              ).toLocaleString(userLocale)}`,
+              ).toLocaleString(userLocale, {
+                timeZone: getGuildTimezone(message.guild?.id),
+                timeZoneName: "short",
+              })}`,
             });
 
           await message.channel.send({ embeds: [embed] });

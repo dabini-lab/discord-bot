@@ -1,5 +1,5 @@
 // 주요 클래스 가져오기
-import { Client, GatewayIntentBits } from "discord.js";
+import { Client, GatewayIntentBits, EmbedBuilder } from "discord.js";
 import express from "express";
 import dotenv from "dotenv";
 import { GoogleAuth } from "google-auth-library";
@@ -9,7 +9,7 @@ dotenv.config();
 const DISCORD_LOGIN_TOKEN = process.env.DISCORD_LOGIN_TOKEN;
 const ENGINE_URL = process.env.ENGINE_URL;
 const app = express();
-const PORT = 8080;
+const PORT = process.env.PORT || 8080;
 
 app.use(express.json());
 
@@ -133,10 +133,48 @@ client.on("messageCreate", async (message) => {
         method: "POST",
         data: requestBody,
       });
+
+      // Get the text response
       const reply = response.data.response.content;
+
+      // Send the text response in chunks
       const chunks = splitMessage(reply);
       for (const chunk of chunks) {
         await message.channel.send(chunk);
+      }
+
+      // Check if stock info exists and create embeds
+      if (response.data.stock_info && response.data.stock_info.length > 0) {
+        for (const stock of response.data.stock_info) {
+          const changeSymbol = stock.change >= 0 ? "▲" : "▼";
+          const changeColor = stock.change >= 0 ? 0x00ff00 : 0xff0000; // Green for positive, red for negative
+
+          const embed = new EmbedBuilder()
+            .setColor(changeColor)
+            .setTitle(`${stock.company_name} (${stock.ticker})`)
+            .setURL(stock.yahoo_finance_url)
+            .addFields(
+              {
+                name: "가격",
+                value: `${stock.price} ${stock.currency}`,
+                inline: true,
+              },
+              {
+                name: "변동",
+                value: `${changeSymbol} ${Math.abs(stock.change).toFixed(
+                  2
+                )} (${Math.abs(stock.change_percentage).toFixed(2)}%)`,
+                inline: true,
+              }
+            )
+            .setFooter({
+              text: `마지막 업데이트: ${new Date(
+                stock.timestamp
+              ).toLocaleString()}`,
+            });
+
+          await message.channel.send({ embeds: [embed] });
+        }
       }
     } catch (error) {
       console.error("Error with engine API:", error);

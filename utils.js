@@ -21,7 +21,7 @@ function splitMessage(text, maxLength = 2000) {
     // Detect code block start
     if (line.startsWith("```")) {
       inCodeBlock = true;
-      codeBlockLanguage = line.slice(3);
+      codeBlockLanguage = line.slice(3).trim();
       currentChunk += line + "\n";
       continue;
     }

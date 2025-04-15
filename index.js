@@ -56,6 +56,9 @@ client.on("messageCreate", async (message) => {
     if (!prompt) return;
 
     try {
+      // Show typing indicator while processing
+      message.channel.sendTyping();
+
       const requestBody = {
         messages: [prompt],
         session_id: `discord-${message.channel.id}`,

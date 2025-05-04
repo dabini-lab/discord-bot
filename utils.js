@@ -103,13 +103,17 @@ async function handleEngineResponse(
   }
 
   // Handle stock info if present
-  if (response.data.stock_info && response.data.stock_info.length > 0) {
+  if (response.data.additional_content?.stock_info_list?.length > 0) {
     await sendStockInfoEmbeds(
       message,
-      response.data.stock_info,
+      response.data.additional_content.stock_info_list,
       translations,
       defaultLanguage
     );
+  }
+
+  if (response.data.additional_content?.giphy_url) {
+    await sendMemeEmbed(response.data.additional_content.giphy_url);
   }
 }
 
@@ -129,7 +133,7 @@ async function sendStockInfoEmbeds(
 
     const embed = new EmbedBuilder()
       .setColor(changeColor)
-      .setTitle(`${stock.company_name} (${stock.ticker})`)
+      .setTitle(`${stock.stock_name} (${stock.ticker})`)
       .setURL(stock.url)
       .addFields(
         {
@@ -157,6 +161,11 @@ async function sendStockInfoEmbeds(
 
     await message.channel.send({ embeds: [embed] });
   }
+}
+
+async function sendMemeEmbed(memeUrl) {
+  const embed = new EmbedBuilder().setImage(memeUrl);
+  await message.channel.send({ embeds: [embed] });
 }
 
 export {

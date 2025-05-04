@@ -1,4 +1,4 @@
-import { EmbedBuilder } from "discord.js";
+import { Embed, EmbedBuilder } from "discord.js";
 
 // Guild timezone management
 const guildTimezones = new Map();
@@ -113,7 +113,7 @@ async function handleEngineResponse(
   }
 
   if (response.data.additional_content?.giphy_url) {
-    await sendMemeEmbed(response.data.additional_content.giphy_url);
+    await sendMemeEmbed(message, response.data.additional_content.giphy_url);
   }
 }
 
@@ -163,7 +163,7 @@ async function sendStockInfoEmbeds(
   }
 }
 
-async function sendMemeEmbed(memeUrl) {
+async function sendMemeEmbed(message, memeUrl) {
   const embed = new EmbedBuilder().setImage(memeUrl);
   await message.channel.send({ embeds: [embed] });
 }

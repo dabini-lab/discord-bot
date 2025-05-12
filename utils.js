@@ -70,19 +70,15 @@ function processMessageContent(message) {
     const member = message.guild.members.cache.get(user.id);
     const displayName = member?.displayName || user.username;
     const userMentionRegex = new RegExp(`<@!?${user.id}>`, "g");
-    prompt = prompt.replace(userMentionRegex, displayName);
+    prompt = prompt.replace(userMentionRegex, ` @${displayName} `);
   }
 
   // Replace role mentions
   const roleMentions = Array.from(message.mentions.roles.values());
   for (const role of roleMentions) {
     const roleMentionRegex = new RegExp(`<@&${role.id}>`, "g");
-    prompt = prompt.replace(roleMentionRegex, `@${role.name}`);
+    prompt = prompt.replace(roleMentionRegex, ` @${role.name} `);
   }
-
-  // Replace @everyone and @here
-  prompt = prompt.replace(/@everyone/g, "모두");
-  prompt = prompt.replace(/@here/g, "여기있는사람들");
 
   return prompt.trim();
 }

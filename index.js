@@ -1,121 +1,87 @@
 // ==========================================================
-// IMPORTS & CONFIGURATION
+// DISCORD BOT - MAIN ENTRY POINT
 // ==========================================================
-import { Client, GatewayIntentBits } from "discord.js";
-import express from "express";
-import dotenv from "dotenv";
-import { GoogleAuth } from "google-auth-library";
-import { translations, defaultLanguage } from "./translations.js";
-import { processMessageContent, handleEngineResponse } from "./utils.js";
+import { validateEnvironment, config } from "./src/config/environment.js";
+import { DiscordBot } from "./src/services/discord.js";
+import { initializeEngine } from "./src/services/engine.js";
+import { createServer, startServer } from "./src/server/app.js";
 
-// Load environment variables
-dotenv.config();
-
-// Environment variables
-const DISCORD_LOGIN_TOKEN = process.env.DISCORD_LOGIN_TOKEN;
-const ENGINE_URL = process.env.ENGINE_URL;
-const PORT = process.env.PORT || 8080;
-
-// ==========================================================
-// DISCORD CLIENT SETUP
-// ==========================================================
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
-});
-
-// ==========================================================
-// ENGINE API CLIENT SETUP
-// ==========================================================
-const auth = new GoogleAuth();
-let engineClient;
-
-async function initializeEngineClient() {
-  try {
-    engineClient = await auth.getIdTokenClient(ENGINE_URL);
-    console.log("Engine client initialized successfully");
-  } catch (error) {
-    console.error("Failed to initialize engine client:", error);
+class BotApplication {
+  constructor() {
+    this.discordBot = null;
+    this.server = null;
   }
-}
 
-// ==========================================================
-// EVENT HANDLERS
-// ==========================================================
-client.on("messageCreate", async (message) => {
-  // Ignore bot messages
-  if (message.author.bot) return;
-
-  // Only respond to mentions
-  if (message.mentions.has(client.user)) {
-    const prompt = processMessageContent(message);
-    // Skip if prompt is empty after processing
-    if (!prompt) return;
-
+  async initialize() {
     try {
-      // Show typing indicator while processing
-      message.channel.sendTyping();
+      // Validate environment configuration
+      validateEnvironment();
+      console.log("Environment configuration validated");
 
-      const requestBody = {
-        messages: [prompt],
-        session_id: `discord-${message.channel.id}`,
-        speaker_name:
-          message.member.displayName || message.member.user.username,
-      };
+      // Initialize services
+      await this.initializeServices();
 
-      const response = await engineClient.request({
-        url: `${ENGINE_URL}/messages`,
-        method: "POST",
-        data: requestBody,
-      });
+      // Start server
+      await this.startServer();
 
-      await handleEngineResponse(
-        message,
-        response,
-        translations,
-        defaultLanguage
-      );
+      // Login to Discord
+      await this.startDiscordBot();
+
+      console.log("Bot application started successfully");
     } catch (error) {
-      console.error("Error with engine API:", error);
-      await message.channel.send(
-        "Sorry. I can't process your request right now."
-      );
+      console.error("Failed to start the bot application:", error);
+      process.exit(1);
     }
   }
-});
 
-// ==========================================================
-// EXPRESS SERVER
-// ==========================================================
-const app = express();
-app.use(express.json());
+  async initializeServices() {
+    console.log("Initializing services...");
 
-app.get("/health", (req, res) => {
-  res.sendStatus(200);
-});
+    // Initialize engine API client
+    await initializeEngine();
 
-// ==========================================================
-// INITIALIZATION
-// ==========================================================
-async function startBot() {
-  try {
-    // Initialize API client
-    await initializeEngineClient();
+    // Initialize Discord bot
+    this.discordBot = new DiscordBot();
+  }
 
-    // Start Express server
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server is running on port ${PORT}`);
-    });
+  async startServer() {
+    console.log("Starting HTTP server...");
+    const app = createServer();
+    this.server = await startServer(app);
+  }
 
-    // Login to Discord
-    await client.login(DISCORD_LOGIN_TOKEN);
-    console.log("Discord bot logged in successfully");
-  } catch (error) {
-    console.error("Failed to start the bot:", error);
+  async startDiscordBot() {
+    console.log("Starting Discord bot...");
+    await this.discordBot.login(config.discord.loginToken);
+  }
+
+  async shutdown() {
+    console.log("Shutting down bot application...");
+
+    if (this.server) {
+      this.server.close();
+    }
+
+    // Add any other cleanup logic here
+    process.exit(0);
   }
 }
 
-startBot();
+// Handle graceful shutdown
+process.on("SIGINT", async () => {
+  console.log("\nReceived SIGINT, shutting down gracefully...");
+  if (botApp) {
+    await botApp.shutdown();
+  }
+});
+
+process.on("SIGTERM", async () => {
+  console.log("\nReceived SIGTERM, shutting down gracefully...");
+  if (botApp) {
+    await botApp.shutdown();
+  }
+});
+
+// Start the application
+const botApp = new BotApplication();
+botApp.initialize();

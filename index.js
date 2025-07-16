@@ -84,4 +84,11 @@ process.on("SIGTERM", async () => {
 
 // Start the application
 const botApp = new BotApplication();
-botApp.initialize();
+(async () => {
+  try {
+    await botApp.initialize();
+  } catch (error) {
+    console.error("Unhandled error during bot initialization:", error);
+    process.exit(1);
+  }
+})();

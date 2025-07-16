@@ -1,7 +1,13 @@
 // ==========================================================
 // DISCORD CLIENT SETUP AND EVENT HANDLERS
 // ==========================================================
-import { Client, GatewayIntentBits, REST, Routes } from "discord.js";
+import {
+  Client,
+  GatewayIntentBits,
+  REST,
+  Routes,
+  PermissionFlagsBits,
+} from "discord.js";
 import { processMessageContent, handleEngineResponse } from "../utils.js";
 import { translations, defaultLanguage } from "../translations.js";
 import { makeEngineRequest } from "./engine.js";
@@ -123,7 +129,9 @@ export class DiscordBot {
           guild.channels.cache.find(
             (ch) =>
               ch.type === 0 &&
-              ch.permissionsFor(guild.members.me).has("SendMessages")
+              ch
+                .permissionsFor(guild.members.me)
+                .has(PermissionFlagsBits.SendMessages)
           );
 
         if (channel) {

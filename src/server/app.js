@@ -6,12 +6,32 @@ import { verifyDiscordSignature } from "../middleware/verification.js";
 import { handleInteraction } from "../handlers/interactions.js";
 import { config } from "../config/environment.js";
 
-export function createServer() {
+export function createServer(discordBot = null) {
   const app = express();
 
   // Health check endpoint
   app.get("/health", (req, res) => {
-    res.json({ status: "ok", timestamp: new Date().toISOString() });
+    const health = {
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      discord: {
+        connected: discordBot
+          ? discordBot.client.readyTimestamp !== null
+          : false,
+        user: discordBot?.client.user?.tag || null,
+      },
+    };
+
+    // Return 503 if Discord is not connected
+    if (!health.discord.connected) {
+      return res.status(503).json({
+        ...health,
+        status: "unhealthy",
+        message: "Discord client not connected",
+      });
+    }
+
+    res.json(health);
   });
 
   // Raw body parser for webhook verification

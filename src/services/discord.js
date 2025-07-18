@@ -203,9 +203,14 @@ export class DiscordBot {
       } else {
         // Send a ping to verify connection
         try {
-          const ping = this.client.ws.ping;
-          if (ping > 0) {
+          const ping = this.client.ws?.ping;
+          if (ping !== undefined && ping > 0) {
             console.log(`Discord client alive - ping: ${ping}ms`);
+          } else {
+            console.log(
+              "Discord client ping unavailable, attempting reconnection..."
+            );
+            this.handleReconnection();
           }
         } catch (error) {
           console.log("Discord client ping failed, attempting reconnection...");
@@ -245,7 +250,7 @@ export class DiscordBot {
     setTimeout(async () => {
       try {
         // Destroy the current client
-        if (this.client.readyTimestamp) {
+        if (this.client && this.client.readyTimestamp) {
           this.client.destroy();
         }
 

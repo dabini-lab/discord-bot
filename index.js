@@ -46,7 +46,7 @@ class BotApplication {
 
   async startServer() {
     console.log("Starting HTTP server...");
-    const app = createServer();
+    const app = createServer(this.discordBot);
     this.server = await startServer(app);
   }
 
@@ -57,6 +57,13 @@ class BotApplication {
 
   async shutdown() {
     console.log("Shutting down bot application...");
+
+    if (this.discordBot) {
+      this.discordBot.stopKeepAlive();
+      if (this.discordBot.client.readyTimestamp) {
+        this.discordBot.client.destroy();
+      }
+    }
 
     if (this.server) {
       this.server.close();

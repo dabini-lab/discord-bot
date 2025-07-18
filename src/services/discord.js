@@ -77,6 +77,10 @@ export class DiscordBot {
     });
 
     this.rest = new REST({ version: "10" }).setToken(config.discord.loginToken);
+    this.isReconnecting = false;
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 5;
+    this.keepAliveInterval = null;
     this.setupEventHandlers();
   }
 
@@ -109,6 +113,10 @@ export class DiscordBot {
   setupEventHandlers() {
     this.client.on("ready", async () => {
       console.log(`Discord bot logged in as ${this.client.user.tag}`);
+      this.reconnectAttempts = 0; // Reset reconnect attempts on successful connection
+
+      // Start keep-alive mechanism
+      this.startKeepAlive();
 
       // Register slash commands when bot is ready
       try {
@@ -116,6 +124,27 @@ export class DiscordBot {
       } catch (error) {
         console.error("Failed to register slash commands:", error);
       }
+    });
+
+    // Handle disconnection events
+    this.client.on("disconnect", (event) => {
+      console.log(`Discord bot disconnected:`, event);
+      this.handleReconnection();
+    });
+
+    this.client.on("error", (error) => {
+      console.error("Discord client error:", error);
+      this.handleReconnection();
+    });
+
+    this.client.on("shardDisconnect", (event, id) => {
+      console.log(`Shard ${id} disconnected:`, event);
+      this.handleReconnection();
+    });
+
+    this.client.on("shardError", (error, shardId) => {
+      console.error(`Shard ${shardId} error:`, error);
+      this.handleReconnection();
     });
 
     // Handle when bot is added to a new guild
@@ -158,6 +187,102 @@ export class DiscordBot {
     });
 
     this.client.on("messageCreate", this.handleMessage.bind(this));
+  }
+
+  startKeepAlive() {
+    // Clear existing interval if any
+    if (this.keepAliveInterval) {
+      clearInterval(this.keepAliveInterval);
+    }
+
+    // Check connection every 5 minutes
+    this.keepAliveInterval = setInterval(async () => {
+      if (!this.client.readyTimestamp) {
+        console.log("Discord client not ready, attempting reconnection...");
+        this.handleReconnection();
+      } else {
+        // Send a ping to verify connection
+        try {
+          const ping = this.client.ws?.ping;
+          if (ping !== undefined && ping > 0) {
+            console.log(`Discord client alive - ping: ${ping}ms`);
+          } else {
+            console.log(
+              "Discord client ping unavailable, attempting reconnection..."
+            );
+            this.handleReconnection();
+          }
+        } catch (error) {
+          console.log("Discord client ping failed, attempting reconnection...");
+          this.handleReconnection();
+        }
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+  }
+
+  stopKeepAlive() {
+    if (this.keepAliveInterval) {
+      clearInterval(this.keepAliveInterval);
+      this.keepAliveInterval = null;
+    }
+  }
+
+  async handleReconnection() {
+    if (this.isReconnecting) {
+      return; // Already attempting to reconnect
+    }
+
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.error(
+        `Max reconnection attempts (${this.maxReconnectAttempts}) exceeded`
+      );
+      return;
+    }
+
+    this.isReconnecting = true;
+    this.reconnectAttempts++;
+
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000); // Exponential backoff, max 30s
+    console.log(
+      `Attempting to reconnect Discord bot (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${delay}ms...`
+    );
+
+    setTimeout(async () => {
+      try {
+        // Destroy the current client
+        if (this.client && this.client.readyTimestamp) {
+          this.client.destroy();
+        }
+
+        // Create a new client instance
+        this.client = new Client({
+          intents: [
+            GatewayIntentBits.Guilds,
+            GatewayIntentBits.GuildMessages,
+            GatewayIntentBits.MessageContent,
+          ],
+        });
+
+        // Re-setup event handlers
+        this.setupEventHandlers();
+
+        // Attempt to login
+        await this.client.login(config.discord.loginToken);
+        console.log("Discord bot reconnected successfully");
+        this.isReconnecting = false;
+      } catch (error) {
+        console.error(
+          `Reconnection attempt ${this.reconnectAttempts} failed:`,
+          error
+        );
+        this.isReconnecting = false;
+
+        // Try again if we haven't exceeded max attempts
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+          setTimeout(() => this.handleReconnection(), 5000);
+        }
+      }
+    }, delay);
   }
 
   async handleMessage(message) {

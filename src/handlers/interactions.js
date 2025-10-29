@@ -139,6 +139,16 @@ async function handleApplicationCommand(interaction, res) {
     return;
   }
 
+  // Handle activation command
+  if (commandName === "activation") {
+    return res.json({
+      type: 4, // CHANNEL_MESSAGE_WITH_SOURCE
+      data: {
+        content: "Not implemented yet",
+      },
+    });
+  }
+
   // Unknown command
   res.status(400).send("Unknown command");
 }

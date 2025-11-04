@@ -64,6 +64,14 @@ const commands = [
       },
     ],
   },
+  {
+    name: "activation",
+    description: "다빈이 계정 활성화",
+    description_localizations: {
+      ko: "다빈이 계정 활성화",
+      "en-US": "Activation for Dabini account",
+    },
+  },
 ];
 
 export class DiscordBot {

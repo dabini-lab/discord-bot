@@ -141,12 +141,50 @@ async function handleApplicationCommand(interaction, res) {
 
   // Handle activation command
   if (commandName === "activation") {
-    return res.json({
-      type: 4, // CHANNEL_MESSAGE_WITH_SOURCE
-      data: {
-        content: "Not implemented yet",
-      },
+    // Defer the response immediately
+    res.json({
+      type: 5, // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
     });
+
+    // Handle the actual processing async
+    setImmediate(async () => {
+      try {
+        // Request activation code from engine
+        const requestBody = {
+          discord_user_id: interaction.member.user.id,
+        };
+
+        const response = await makeEngineRequest(
+          "/activation/discord",
+          "POST",
+          requestBody
+        );
+
+        // Extract activation code from response
+        const activationCode = response.data?.activation_code;
+
+        if (!activationCode) {
+          throw new Error("No activation code received from engine");
+        }
+
+        const activationUrl = `https://dabinilab.com/activation?code=${activationCode}`;
+
+        // Support Korean and English based on user locale
+        const isKorean = interaction.locale?.startsWith("ko");
+        const message = isKorean
+          ? `다빈이 계정을 활성화하려면 아래 링크를 클릭하세요:\n${activationUrl}\n이 링크는 일정 시간 후 만료됩니다.`
+          : `Click the link below to activate your Dabini account:\n${activationUrl}\nThis link will expire after a certain period of time.`;
+
+        await editDeferredResponse(interaction, message);
+      } catch (error) {
+        console.error("Error with activation command:", error);
+        await editDeferredResponse(
+          interaction,
+          "Sorry. I can't generate an activation URL right now."
+        );
+      }
+    });
+    return;
   }
 
   // Unknown command

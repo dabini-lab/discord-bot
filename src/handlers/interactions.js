@@ -3,6 +3,7 @@
 // ==========================================================
 import { translations, defaultLanguage } from "../translations.js";
 import { makeEngineRequest } from "../services/engine.js";
+import { getRemoteConfigValue } from "../config/firebase.js";
 
 // Shared function to generate hello message content
 export async function generateHelloContent(sessionId, speakerName) {
@@ -167,7 +168,12 @@ async function handleApplicationCommand(interaction, res) {
           throw new Error("No activation code received from engine");
         }
 
-        const activationUrl = `https://dabinilab.com/activation?code=${activationCode}`;
+        // Get activation base URL from Firebase Remote Config
+        const activationBaseUrl = await getRemoteConfigValue(
+          "ACTIVATION_URL",
+          "https://dabinilab.com/activation"
+        );
+        const activationUrl = `${activationBaseUrl}/discord?code=${activationCode}`;
 
         // Support Korean and English based on user locale
         const isKorean = interaction.locale?.startsWith("ko");

@@ -72,6 +72,26 @@ const commands = [
       "en-US": "Activation for Dabini account",
     },
   },
+  {
+    name: "image-generation",
+    description: "Generate an image with AI",
+    description_localizations: {
+      ko: "이미지 생성",
+      "en-US": "Generate an image with AI",
+    },
+    options: [
+      {
+        name: "prompt",
+        description: "이미지 생성 프롬프트 (예: 고양이 그려줘)",
+        description_localizations: {
+          ko: "이미지 생성 프롬프트 (예: 고양이 그려줘)",
+          "en-US": "Image generation prompt (e.g., draw a cat)",
+        },
+        type: 3, // STRING type
+        required: true,
+      },
+    ],
+  },
 ];
 
 export class DiscordBot {

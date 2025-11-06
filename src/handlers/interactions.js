@@ -232,7 +232,7 @@ async function handleApplicationCommand(interaction, res) {
                 image: {
                   url: result.image_url,
                 },
-                color: 0xe25f8d, // Discord blurple color
+                color: 0xe25f8d,
                 footer: {
                   text: "AI 이미지 생성 by 다빈이",
                 },

@@ -2,6 +2,7 @@
 // DISCORD BOT - MAIN ENTRY POINT
 // ==========================================================
 import { validateEnvironment, config } from "./src/config/environment.js";
+import { initializeFirebase } from "./src/config/firebase.js";
 import { DiscordBot } from "./src/services/discord.js";
 import { initializeEngine } from "./src/services/engine.js";
 import { createServer, startServer } from "./src/server/app.js";
@@ -36,6 +37,9 @@ class BotApplication {
 
   async initializeServices() {
     console.log("Initializing services...");
+
+    // Initialize Firebase
+    await initializeFirebase();
 
     // Initialize engine API client
     await initializeEngine();

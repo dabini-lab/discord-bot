@@ -218,13 +218,17 @@ async function handleApplicationCommand(interaction, res) {
 
         const result = response.data;
 
+        const fallbackMessage = "미안, 요청을 처리할 수 없어.";
+
         if (result.success && result.is_returning_image && result.image_url) {
           // Image generation succeeded - send as Discord embed
           const embedContent = {
             embeds: [
               {
                 title: "🎨 이미지 생성 완료!",
-                description: `네가 그려달라고 한 ${prompt} 이미지야!`,
+                description:
+                  result.response_message ||
+                  `네가 그려달라고 한 ${prompt} 이미지야!`,
                 image: {
                   url: result.image_url,
                 },
@@ -238,45 +242,13 @@ async function handleApplicationCommand(interaction, res) {
 
           await editDeferredResponseWithEmbed(interaction, embedContent);
         } else {
-          // Image generation failed - generate error message based on error_type
-          // Following the same messages as KakaoTalk bot
-          let errorMessage;
-
-          switch (result.error_type) {
-            case "daily_limit_exceeded":
-              // Parse daily limit from error_detail if available
-              const limitMatch = result.error_detail?.match(/(\d+)\/(\d+)/);
-              const dailyLimit = limitMatch ? limitMatch[2] : "5";
-              errorMessage = `오늘 이미지 생성 횟수(${dailyLimit}회)를 모두 사용했어. 내일 다시 시도해 줘!`;
-              break;
-
-            case "safety_blocked":
-              errorMessage = "미안, 네가 그려달라고 한 건 그릴 수 없어.";
-              break;
-
-            case "no_image_found":
-              errorMessage = "수정할 이미지를 찾지 못했어.";
-              break;
-
-            case "not_image_request":
-              errorMessage = "이미지 생성에 대한 요청만 할 수 있어.";
-              break;
-
-            case "generation_failed":
-            default:
-              errorMessage = "미안, 이미지를 생성하는 중에 문제가 발생했어.";
-              break;
-          }
-
+          // Use response_message from engine (error messages are already generated)
+          const errorMessage = result.response_message || fallbackMessage;
           await editDeferredResponse(interaction, errorMessage);
         }
       } catch (error) {
         console.error("Error with image-generation command:", error);
-        // Same error message as KakaoTalk bot
-        await editDeferredResponse(
-          interaction,
-          "미안, 요청을 처리할 수 없어.\n(이미지 생성 오류)"
-        );
+        await editDeferredResponse(interaction, "미안, 요청을 처리할 수 없어.");
       }
     });
     return;

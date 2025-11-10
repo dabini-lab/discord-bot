@@ -214,11 +214,7 @@ async function handleApplicationCommand(interaction, res) {
           session_id: sessionInfo.sessionId,
         };
 
-        const response = await makeEngineRequest(
-          "/discord/image",
-          "POST",
-          requestBody
-        );
+        const response = await makeEngineRequest("/image", "POST", requestBody);
 
         const result = response.data;
 

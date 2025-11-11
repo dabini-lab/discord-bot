@@ -344,9 +344,13 @@ async function editDeferredResponse(interaction, content) {
 async function editDeferredResponseWithEmbed(interaction, embedData) {
   const followupUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`;
 
-  await fetch(followupUrl, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(embedData),
-  });
+  try {
+    await fetch(followupUrl, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(embedData),
+    });
+  } catch (error) {
+    console.error("Failed to edit deferred response with embed:", error);
+  }
 }

@@ -193,6 +193,67 @@ async function handleApplicationCommand(interaction, res) {
     return;
   }
 
+  // Handle image-generation command
+  if (commandName === "image-generation") {
+    // Defer the response immediately
+    res.json({
+      type: 5, // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
+    });
+
+    // Handle the actual processing async
+    setImmediate(async () => {
+      try {
+        const prompt = extractPromptFromCommand(interaction);
+        const sessionInfo = getSessionInfo(interaction);
+        const userId = `discord-${interaction.member.user.id}`;
+
+        // Request image generation from engine
+        const requestBody = {
+          prompt: prompt,
+          user_id: userId,
+          session_id: sessionInfo.sessionId,
+        };
+
+        const response = await makeEngineRequest("/image", "POST", requestBody);
+
+        const result = response.data;
+
+        const fallbackMessage = "미안, 요청을 처리할 수 없어.";
+
+        if (result.success && result.is_returning_image && result.image_url) {
+          // Image generation succeeded - send as Discord embed
+          const embedContent = {
+            embeds: [
+              {
+                title: "🎨 이미지 생성 완료!",
+                description:
+                  result.response_message ||
+                  `네가 그려달라고 한 ${prompt} 이미지야!`,
+                image: {
+                  url: result.image_url,
+                },
+                color: 0xe25f8d,
+                footer: {
+                  text: "AI 이미지 생성 by 다빈이",
+                },
+              },
+            ],
+          };
+
+          await editDeferredResponseWithEmbed(interaction, embedContent);
+        } else {
+          // Use response_message from engine (error messages are already generated)
+          const errorMessage = result.response_message || fallbackMessage;
+          await editDeferredResponse(interaction, errorMessage);
+        }
+      } catch (error) {
+        console.error("Error with image-generation command:", error);
+        await editDeferredResponse(interaction, "미안, 요청을 처리할 수 없어.");
+      }
+    });
+    return;
+  }
+
   // Unknown command
   res.status(400).send("Unknown command");
 }
@@ -278,4 +339,18 @@ async function editDeferredResponse(interaction, content) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ content }),
   });
+}
+
+async function editDeferredResponseWithEmbed(interaction, embedData) {
+  const followupUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`;
+
+  try {
+    await fetch(followupUrl, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(embedData),
+    });
+  } catch (error) {
+    console.error("Failed to edit deferred response with embed:", error);
+  }
 }

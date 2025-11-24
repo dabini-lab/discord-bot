@@ -92,6 +92,26 @@ const commands = [
       },
     ],
   },
+  {
+    name: "image-edit",
+    description: "Edit an image with AI",
+    description_localizations: {
+      ko: "이미지 수정",
+      "en-US": "Edit an image with AI",
+    },
+    options: [
+      {
+        name: "prompt",
+        description: "이미지 수정 프롬프트 (예: 배경을 바다로 바꿔줘)",
+        description_localizations: {
+          ko: "이미지 수정 프롬프트 (예: 배경을 바다로 바꿔줘)",
+          "en-US": "Image edit prompt (e.g., change background to ocean)",
+        },
+        type: 3, // STRING type
+        required: true,
+      },
+    ],
+  },
 ];
 
 export class DiscordBot {

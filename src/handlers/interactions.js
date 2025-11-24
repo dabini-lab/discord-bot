@@ -283,13 +283,21 @@ async function handleApplicationCommand(interaction, res) {
 
         if (result.success && result.is_returning_image && result.image_url) {
           // Image edit succeeded - send as Discord embed
+          // Sanitize user input before using in embed description
+          function sanitizeDiscordInput(input) {
+            // Escape Discord markdown and mentions
+            return input
+              .replace(/([*_~`|>])/g, "\\$1") // Escape markdown
+              .replace(/@/g, "@\u200b"); // Prevent mentions
+          }
+          const sanitizedPrompt = sanitizeDiscordInput(prompt);
           const embedContent = {
             embeds: [
               {
                 title: "✨ 이미지 편집 완료!",
                 description:
                   result.response_message ||
-                  `네가 편집해달라고 한 ${prompt} 이미지야!`,
+                  `네가 편집해달라고 한 ${sanitizedPrompt} 이미지야!`,
                 image: {
                   url: result.image_url,
                 },

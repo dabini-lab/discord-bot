@@ -275,7 +275,11 @@ async function handleApplicationCommand(interaction, res) {
           session_id: sessionInfo.sessionId,
         };
 
-        const response = await makeEngineRequest("/image/edit", "POST", requestBody);
+        const response = await makeEngineRequest(
+          "/image/edit",
+          "POST",
+          requestBody
+        );
 
         const result = response.data;
 
@@ -294,16 +298,16 @@ async function handleApplicationCommand(interaction, res) {
           const embedContent = {
             embeds: [
               {
-                title: "✨ 이미지 편집 완료!",
+                title: "✨ 이미지 수정 완료!",
                 description:
                   result.response_message ||
-                  `네가 편집해달라고 한 ${sanitizedPrompt} 이미지야!`,
+                  `네가 수정해달라고 한 ${sanitizedPrompt} 이미지야!`,
                 image: {
                   url: result.image_url,
                 },
                 color: 0xe25f8d,
                 footer: {
-                  text: "AI 이미지 편집 by 다빈이",
+                  text: "AI 이미지 수정 by 다빈이",
                 },
               },
             ],

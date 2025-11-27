@@ -4,6 +4,7 @@
 import { translations, defaultLanguage } from "../translations.js";
 import { makeEngineRequest } from "../services/engine.js";
 import { getRemoteConfigValue } from "../config/firebase.js";
+import { splitMessage } from "../utils.js";
 
 // Shared function to generate hello message content
 export async function generateHelloContent(sessionId, speakerName) {
@@ -396,22 +397,41 @@ async function formatEngineResponseForInteraction(
   const replies = response.data.messages;
   let combinedContent = replies.join("\n\n");
 
-  // Truncate if too long for Discord (2000 char limit for interaction responses)
-  if (combinedContent.length > 2000) {
-    combinedContent = combinedContent.substring(0, 1997) + "...";
-  }
-
-  return combinedContent;
+  // Split into multiple messages if too long for Discord (2000 char limit)
+  return splitMessage(combinedContent, 2000);
 }
 
 async function editDeferredResponse(interaction, content) {
-  const followupUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`;
+  const baseUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}`;
+  const originalUrl = `${baseUrl}/messages/@original`;
 
-  await fetch(followupUrl, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content }),
-  });
+  // Handle array of messages (split messages)
+  if (Array.isArray(content)) {
+    // Send first message as edit to original
+    if (content.length > 0) {
+      await fetch(originalUrl, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: content[0] }),
+      });
+    }
+
+    // Send remaining messages as follow-ups
+    for (let i = 1; i < content.length; i++) {
+      await fetch(baseUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: content[i] }),
+      });
+    }
+  } else {
+    // Single message
+    await fetch(originalUrl, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+  }
 }
 
 async function editDeferredResponseWithEmbed(interaction, embedData) {

@@ -401,36 +401,68 @@ async function formatEngineResponseForInteraction(
   return splitMessage(combinedContent, 2000);
 }
 
+// Helper to check Discord API response and throw on error
+async function checkDiscordResponse(response, context = "") {
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => "");
+    throw new Error(
+      `Discord API error${context ? ` (${context})` : ""}: ${response.status} ${response.statusText} - ${errorBody}`
+    );
+  }
+}
+
 async function editDeferredResponse(interaction, content) {
   const baseUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}`;
   const originalUrl = `${baseUrl}/messages/@original`;
 
-  // Handle array of messages (split messages)
-  if (Array.isArray(content)) {
-    // Send first message as edit to original
-    if (content.length > 0) {
-      await fetch(originalUrl, {
+  try {
+    // Handle array of messages (split messages)
+    if (Array.isArray(content)) {
+      // Handle empty array - send fallback to prevent indefinite pending state
+      if (content.length === 0) {
+        const response = await fetch(originalUrl, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: "No response available" }),
+        });
+        await checkDiscordResponse(response, "empty fallback");
+        return;
+      }
+
+      // Send first message as edit to original
+      const response = await fetch(originalUrl, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: content[0] }),
       });
-    }
+      await checkDiscordResponse(response, "first message");
 
-    // Send remaining messages as follow-ups
-    for (let i = 1; i < content.length; i++) {
-      await fetch(baseUrl, {
-        method: "POST",
+      // Send remaining messages as follow-ups
+      for (let i = 1; i < content.length; i++) {
+        const followUpResponse = await fetch(baseUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: content[i] }),
+        });
+        if (!followUpResponse.ok) {
+          const errorBody = await followUpResponse.text().catch(() => "");
+          console.error(
+            `Discord API error on follow-up message ${i}: ${followUpResponse.status} ${followUpResponse.statusText} - ${errorBody}`
+          );
+          // Continue sending remaining messages even if one fails
+        }
+      }
+    } else {
+      // Single message
+      const response = await fetch(originalUrl, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: content[i] }),
+        body: JSON.stringify({ content: content || "No response available" }),
       });
+      await checkDiscordResponse(response, "single message");
     }
-  } else {
-    // Single message
-    await fetch(originalUrl, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
-    });
+  } catch (error) {
+    console.error("Failed to edit deferred response:", error);
   }
 }
 
@@ -438,11 +470,12 @@ async function editDeferredResponseWithEmbed(interaction, embedData) {
   const followupUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`;
 
   try {
-    await fetch(followupUrl, {
+    const response = await fetch(followupUrl, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(embedData),
     });
+    await checkDiscordResponse(response, "embed");
   } catch (error) {
     console.error("Failed to edit deferred response with embed:", error);
   }

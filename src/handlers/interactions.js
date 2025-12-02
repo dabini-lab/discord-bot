@@ -4,6 +4,7 @@
 import { translations, defaultLanguage } from "../translations.js";
 import { makeEngineRequest } from "../services/engine.js";
 import { getRemoteConfigValue } from "../config/firebase.js";
+import { splitMessage } from "../utils.js";
 
 // Shared function to generate hello message content
 export async function generateHelloContent(sessionId, speakerName) {
@@ -396,33 +397,85 @@ async function formatEngineResponseForInteraction(
   const replies = response.data.messages;
   let combinedContent = replies.join("\n\n");
 
-  // Truncate if too long for Discord (2000 char limit for interaction responses)
-  if (combinedContent.length > 2000) {
-    combinedContent = combinedContent.substring(0, 1997) + "...";
-  }
+  // Split into multiple messages if too long for Discord (2000 char limit)
+  return splitMessage(combinedContent, 2000);
+}
 
-  return combinedContent;
+// Helper to check Discord API response and throw on error
+async function checkDiscordResponse(response, context = "") {
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => "");
+    throw new Error(
+      `Discord API error${context ? ` (${context})` : ""}: ${response.status} ${response.statusText} - ${errorBody}`
+    );
+  }
 }
 
 async function editDeferredResponse(interaction, content) {
-  const followupUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`;
+  const baseUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}`;
+  const originalUrl = `${baseUrl}/messages/@original`;
 
-  await fetch(followupUrl, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content }),
-  });
+  try {
+    // Handle array of messages (split messages)
+    if (Array.isArray(content)) {
+      // Handle empty array - send fallback to prevent indefinite pending state
+      if (content.length === 0) {
+        const response = await fetch(originalUrl, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: "No response available" }),
+        });
+        await checkDiscordResponse(response, "empty fallback");
+        return;
+      }
+
+      // Send first message as edit to original
+      const response = await fetch(originalUrl, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: content[0] }),
+      });
+      await checkDiscordResponse(response, "first message");
+
+      // Send remaining messages as follow-ups
+      for (let i = 1; i < content.length; i++) {
+        const followUpResponse = await fetch(baseUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: content[i] }),
+        });
+        if (!followUpResponse.ok) {
+          const errorBody = await followUpResponse.text().catch(() => "");
+          console.error(
+            `Discord API error on follow-up message ${i}: ${followUpResponse.status} ${followUpResponse.statusText} - ${errorBody}`
+          );
+          // Continue sending remaining messages even if one fails
+        }
+      }
+    } else {
+      // Single message
+      const response = await fetch(originalUrl, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: content || "No response available" }),
+      });
+      await checkDiscordResponse(response, "single message");
+    }
+  } catch (error) {
+    console.error("Failed to edit deferred response:", error);
+  }
 }
 
 async function editDeferredResponseWithEmbed(interaction, embedData) {
   const followupUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`;
 
   try {
-    await fetch(followupUrl, {
+    const response = await fetch(followupUrl, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(embedData),
     });
+    await checkDiscordResponse(response, "embed");
   } catch (error) {
     console.error("Failed to edit deferred response with embed:", error);
   }

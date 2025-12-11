@@ -25,10 +25,7 @@ class BotApplication {
       // Start server
       await this.startServer();
 
-      // Login to Discord
-      await this.startDiscordBot();
-
-      console.log("Bot application started successfully");
+      console.log("Bot application started successfully (stateless mode)");
     } catch (error) {
       console.error("Failed to start the bot application:", error);
       process.exit(1);
@@ -44,36 +41,24 @@ class BotApplication {
     // Initialize engine API client
     await initializeEngine();
 
-    // Initialize Discord bot
+    // Initialize Discord command service (stateless)
     this.discordBot = new DiscordBot();
+    await this.discordBot.registerSlashCommands();
   }
 
   async startServer() {
     console.log("Starting HTTP server...");
-    const app = createServer(this.discordBot);
+    const app = createServer();
     this.server = await startServer(app);
-  }
-
-  async startDiscordBot() {
-    console.log("Starting Discord bot...");
-    await this.discordBot.login(config.discord.loginToken);
   }
 
   async shutdown() {
     console.log("Shutting down bot application...");
 
-    if (this.discordBot) {
-      this.discordBot.stopKeepAlive();
-      if (this.discordBot.client.readyTimestamp) {
-        this.discordBot.client.destroy();
-      }
-    }
-
     if (this.server) {
       this.server.close();
     }
 
-    // Add any other cleanup logic here
     process.exit(0);
   }
 }

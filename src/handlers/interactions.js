@@ -215,11 +215,7 @@ async function handleApplicationCommand(interaction, res) {
           discord_user_id: interaction.member.user.id,
         };
 
-        const response = await makeEngineRequest(
-          "/activation/discord",
-          "DELETE",
-          requestBody
-        );
+        await makeEngineRequest("/activation/discord", "DELETE", requestBody);
 
         // Support Korean and English based on user locale
         const isKorean = interaction.locale?.startsWith("ko");
@@ -230,10 +226,11 @@ async function handleApplicationCommand(interaction, res) {
         await editDeferredResponse(interaction, message);
       } catch (error) {
         console.error("Error with deactivate command:", error);
-        await editDeferredResponse(
-          interaction,
-          "Sorry. I can't process the deactivation request right now."
-        );
+        const isKorean = interaction.locale?.startsWith("ko");
+        const errorMessage = isKorean
+          ? "죄송합니다. 지금은 비활성화 요청을 처리할 수 없습니다."
+          : "Sorry. I can't process the deactivation request right now.";
+        await editDeferredResponse(interaction, errorMessage);
       }
     });
     return;

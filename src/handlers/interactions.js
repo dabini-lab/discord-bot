@@ -216,8 +216,8 @@ async function handleApplicationCommand(interaction, res) {
         };
 
         const response = await makeEngineRequest(
-          "/deactivation/discord",
-          "POST",
+          "/activation/discord",
+          "DELETE",
           requestBody
         );
 

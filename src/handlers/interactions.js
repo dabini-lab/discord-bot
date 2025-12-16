@@ -19,7 +19,7 @@ export async function generateHelloContent(sessionId, speakerName) {
       speakerName
     );
 
-    const aiCapabilities = await formatEngineResponseForInteraction(
+    const aiResult = await formatEngineResponseForInteraction(
       aiResponse,
       translations,
       defaultLanguage,
@@ -31,7 +31,7 @@ export async function generateHelloContent(sessionId, speakerName) {
 **이용약관**: <https://dabinilab.com/terms/>
 **개인정보처리방침**: <https://dabinilab.com/privacy/>
 
-${aiCapabilities}`;
+${aiResult.content}`;
   } catch (error) {
     console.error("Error generating hello content:", error);
     const greeting =
@@ -123,13 +123,19 @@ async function handleApplicationCommand(interaction, res) {
           sessionInfo.speakerName
         );
 
-        const responseContent = await formatEngineResponseForInteraction(
+        const result = await formatEngineResponseForInteraction(
           response,
           translations,
           defaultLanguage,
           interaction.locale
         );
-        await editDeferredResponse(interaction, responseContent);
+
+        // If there are embeds, use editDeferredResponseWithEmbed, otherwise use editDeferredResponse
+        if (result.embeds && result.embeds.length > 0) {
+          await editDeferredResponseWithEmbed(interaction, result);
+        } else {
+          await editDeferredResponse(interaction, result.content);
+        }
       } catch (error) {
         console.error("Error with engine API in webhook:", error);
         await editDeferredResponse(
@@ -395,20 +401,86 @@ async function formatEngineResponseForInteraction(
 
   // Combine all message responses into one response
   const replies = response.data.messages;
+
+  // Validate messages array exists and has content
+  if (!replies || !Array.isArray(replies) || replies.length === 0) {
+    const fallbackMessage =
+      langCode === "ko"
+        ? "죄송합니다. 응답을 생성할 수 없습니다."
+        : "Sorry, I couldn't generate a response.";
+    return {
+      content: fallbackMessage,
+      embeds: [],
+    };
+  }
+
   let combinedContent = replies.join("\n\n");
 
-  // Split into multiple messages if too long for Discord (2000 char limit)
-  return splitMessage(combinedContent, 2000);
-}
-
-// Helper to check Discord API response and throw on error
-async function checkDiscordResponse(response, context = "") {
-  if (!response.ok) {
-    const errorBody = await response.text().catch(() => "");
-    throw new Error(
-      `Discord API error${context ? ` (${context})` : ""}: ${response.status} ${response.statusText} - ${errorBody}`
-    );
+  // Truncate if too long for Discord (2000 char limit for interaction responses)
+  if (combinedContent.length > 2000) {
+    let truncateAt = 1997;
+    // Check if we're cutting in the middle of a surrogate pair (emoji, etc.)
+    const charCode = combinedContent.charCodeAt(truncateAt - 1);
+    if (charCode >= 0xd800 && charCode <= 0xdbff) {
+      // High surrogate - we're about to cut a surrogate pair, move back one position
+      truncateAt--;
+    }
+    combinedContent = combinedContent.substring(0, truncateAt) + "...";
   }
+
+  // Prepare result with content and optional embeds
+  const result = {
+    content: combinedContent,
+    embeds: [],
+  };
+
+  // Handle stock info if present
+  if (response.data.additional_content?.stock_info_list?.length > 0) {
+    for (const stock of response.data.additional_content.stock_info_list) {
+      const changeSymbol = stock.change >= 0 ? "▲" : "▼";
+      const changeColor = stock.change >= 0 ? 0x00ff00 : 0xff0000;
+
+      const embed = {
+        color: changeColor,
+        title: `${stock.stock_name} (${stock.ticker})`,
+        url: stock.url,
+        fields: [
+          {
+            name: lang.price,
+            value: `${stock.price} ${stock.currency}`,
+            inline: true,
+          },
+          {
+            name: lang.change,
+            value: `${changeSymbol} ${Math.abs(stock.change).toFixed(
+              2
+            )} (${Math.abs(stock.change_percentage).toFixed(2)}%)`,
+            inline: true,
+          },
+        ],
+        footer: {
+          text: `${lang.lastUpdated}: ${new Date(
+            stock.timestamp
+          ).toLocaleString(userLocale, {
+            timeZoneName: "short",
+          })}`,
+        },
+      };
+
+      result.embeds.push(embed);
+    }
+  }
+
+  // Handle meme/giphy if present
+  if (response.data.additional_content?.giphy_url) {
+    result.embeds.push({
+      image: {
+        url: response.data.additional_content.giphy_url,
+      },
+    });
+  }
+
+  return result;
 }
 
 async function editDeferredResponse(interaction, content) {
@@ -420,22 +492,26 @@ async function editDeferredResponse(interaction, content) {
     if (Array.isArray(content)) {
       // Handle empty array - send fallback to prevent indefinite pending state
       if (content.length === 0) {
-        const response = await fetch(originalUrl, {
+        await fetch(originalUrl, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content: "No response available" }),
         });
-        await checkDiscordResponse(response, "empty fallback");
         return;
       }
 
       // Send first message as edit to original
-      const response = await fetch(originalUrl, {
+      const originalResponse = await fetch(originalUrl, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: content[0] }),
       });
-      await checkDiscordResponse(response, "first message");
+      if (!originalResponse.ok) {
+        const errorBody = await originalResponse.text().catch(() => "");
+        console.error(
+          `Discord API error editing original message: ${originalResponse.status} ${originalResponse.statusText} - ${errorBody}`
+        );
+      }
 
       // Send remaining messages as follow-ups
       for (let i = 1; i < content.length; i++) {
@@ -459,7 +535,12 @@ async function editDeferredResponse(interaction, content) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: content || "No response available" }),
       });
-      await checkDiscordResponse(response, "single message");
+      if (!response.ok) {
+        const errorBody = await response.text().catch(() => "");
+        console.error(
+          `Discord API error editing original message: ${response.status} ${response.statusText} - ${errorBody}`
+        );
+      }
     }
   } catch (error) {
     console.error("Failed to edit deferred response:", error);
@@ -475,7 +556,12 @@ async function editDeferredResponseWithEmbed(interaction, embedData) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(embedData),
     });
-    await checkDiscordResponse(response, "embed");
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => "");
+      console.error(
+        `Discord API error editing deferred response with embed: ${response.status} ${response.statusText} - ${errorBody}`
+      );
+    }
   } catch (error) {
     console.error("Failed to edit deferred response with embed:", error);
   }

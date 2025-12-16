@@ -6,30 +6,17 @@ import { verifyDiscordSignature } from "../middleware/verification.js";
 import { handleInteraction } from "../handlers/interactions.js";
 import { config } from "../config/environment.js";
 
-export function createServer(discordBot = null) {
+export function createServer() {
   const app = express();
 
-  // Health check endpoint
+  // Health check endpoint (stateless)
   app.get("/health", (req, res) => {
     const health = {
       status: "ok",
       timestamp: new Date().toISOString(),
-      discord: {
-        connected: discordBot
-          ? discordBot.client.readyTimestamp !== null
-          : false,
-        user: discordBot?.client.user?.tag || null,
-      },
+      mode: "stateless",
+      message: "Webhook-only mode - no gateway connection",
     };
-
-    // Return 503 if Discord is not connected
-    if (!health.discord.connected) {
-      return res.status(503).json({
-        ...health,
-        status: "unhealthy",
-        message: "Discord client not connected",
-      });
-    }
 
     res.json(health);
   });

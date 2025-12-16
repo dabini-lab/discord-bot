@@ -35,7 +35,7 @@ const commands = [
     ],
   },
   {
-    name: "activation",
+    name: "activate",
     description: "Activation for Dabini account",
     description_localizations: {
       ko: "다빈이 계정 활성화",
@@ -43,7 +43,15 @@ const commands = [
     },
   },
   {
-    name: "image-generation",
+    name: "deactivate",
+    description: "Deactivation for Dabini account",
+    description_localizations: {
+      ko: "다빈이 계정 비활성화",
+      "en-US": "Deactivation for Dabini account",
+    },
+  },
+  {
+    name: "image-gen",
     description: "Generate an image with AI",
     description_localizations: {
       ko: "이미지 생성",

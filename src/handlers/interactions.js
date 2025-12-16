@@ -401,11 +401,31 @@ async function formatEngineResponseForInteraction(
 
   // Combine all message responses into one response
   const replies = response.data.messages;
+
+  // Validate messages array exists and has content
+  if (!replies || !Array.isArray(replies) || replies.length === 0) {
+    const fallbackMessage =
+      langCode === "ko"
+        ? "죄송합니다. 응답을 생성할 수 없습니다."
+        : "Sorry, I couldn't generate a response.";
+    return {
+      content: fallbackMessage,
+      embeds: [],
+    };
+  }
+
   let combinedContent = replies.join("\n\n");
 
   // Truncate if too long for Discord (2000 char limit for interaction responses)
   if (combinedContent.length > 2000) {
-    combinedContent = combinedContent.substring(0, 1997) + "...";
+    let truncateAt = 1997;
+    // Check if we're cutting in the middle of a surrogate pair (emoji, etc.)
+    const charCode = combinedContent.charCodeAt(truncateAt - 1);
+    if (charCode >= 0xd800 && charCode <= 0xdbff) {
+      // High surrogate - we're about to cut a surrogate pair, move back one position
+      truncateAt--;
+    }
+    combinedContent = combinedContent.substring(0, truncateAt) + "...";
   }
 
   // Prepare result with content and optional embeds
@@ -481,11 +501,17 @@ async function editDeferredResponse(interaction, content) {
       }
 
       // Send first message as edit to original
-      await fetch(originalUrl, {
+      const originalResponse = await fetch(originalUrl, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: content[0] }),
       });
+      if (!originalResponse.ok) {
+        const errorBody = await originalResponse.text().catch(() => "");
+        console.error(
+          `Discord API error editing original message: ${originalResponse.status} ${originalResponse.statusText} - ${errorBody}`
+        );
+      }
 
       // Send remaining messages as follow-ups
       for (let i = 1; i < content.length; i++) {
@@ -504,11 +530,17 @@ async function editDeferredResponse(interaction, content) {
       }
     } else {
       // Single message
-      await fetch(originalUrl, {
+      const response = await fetch(originalUrl, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: content || "No response available" }),
       });
+      if (!response.ok) {
+        const errorBody = await response.text().catch(() => "");
+        console.error(
+          `Discord API error editing original message: ${response.status} ${response.statusText} - ${errorBody}`
+        );
+      }
     }
   } catch (error) {
     console.error("Failed to edit deferred response:", error);
@@ -519,11 +551,17 @@ async function editDeferredResponseWithEmbed(interaction, embedData) {
   const followupUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`;
 
   try {
-    await fetch(followupUrl, {
+    const response = await fetch(followupUrl, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(embedData),
     });
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => "");
+      console.error(
+        `Discord API error editing deferred response with embed: ${response.status} ${response.statusText} - ${errorBody}`
+      );
+    }
   } catch (error) {
     console.error("Failed to edit deferred response with embed:", error);
   }

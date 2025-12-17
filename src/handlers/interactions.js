@@ -147,8 +147,8 @@ async function handleApplicationCommand(interaction, res) {
     return;
   }
 
-  // Handle activation command
-  if (commandName === "activation") {
+  // Handle activate command
+  if (commandName === "activate") {
     // Defer the response immediately
     res.json({
       type: 5, // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
@@ -200,8 +200,44 @@ async function handleApplicationCommand(interaction, res) {
     return;
   }
 
-  // Handle image-generation command
-  if (commandName === "image-generation") {
+  // Handle deactivate command
+  if (commandName === "deactivate") {
+    // Defer the response immediately
+    res.json({
+      type: 5, // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
+    });
+
+    // Handle the actual processing async
+    setImmediate(async () => {
+      try {
+        // Request deactivation from engine
+        const requestBody = {
+          discord_user_id: interaction.member.user.id,
+        };
+
+        await makeEngineRequest("/activation/discord", "DELETE", requestBody);
+
+        // Support Korean and English based on user locale
+        const isKorean = interaction.locale?.startsWith("ko");
+        const message = isKorean
+          ? "다빈이 계정이 비활성화되었습니다."
+          : "Your Dabini account has been deactivated.";
+
+        await editDeferredResponse(interaction, message);
+      } catch (error) {
+        console.error("Error with deactivate command:", error);
+        const isKorean = interaction.locale?.startsWith("ko");
+        const errorMessage = isKorean
+          ? "죄송합니다. 지금은 비활성화 요청을 처리할 수 없습니다."
+          : "Sorry. I can't process the deactivation request right now.";
+        await editDeferredResponse(interaction, errorMessage);
+      }
+    });
+    return;
+  }
+
+  // Handle image-gen command
+  if (commandName === "image-gen") {
     // Defer the response immediately
     res.json({
       type: 5, // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE

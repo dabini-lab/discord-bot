@@ -4,10 +4,9 @@
 import { translations, defaultLanguage } from "../translations.js";
 import { makeEngineRequest } from "../services/engine.js";
 import { getRemoteConfigValue } from "../config/firebase.js";
-import { splitMessage } from "../utils.js";
 
 // Shared function to generate hello message content
-export async function generateHelloContent(sessionId, speakerName) {
+export async function generateHelloContent(sessionId, speakerName, userId) {
   try {
     const greeting =
       translations[defaultLanguage]?.greeting || "안녕! 난 다빈이야.";
@@ -16,7 +15,8 @@ export async function generateHelloContent(sessionId, speakerName) {
     const aiResponse = await processAIRequest(
       "너 뭐 할 수 있어? 예시와 함께 보여줘.",
       sessionId,
-      speakerName
+      speakerName,
+      userId
     );
 
     const aiResult = await formatEngineResponseForInteraction(
@@ -28,18 +28,12 @@ export async function generateHelloContent(sessionId, speakerName) {
 
     return `${greeting}
 
-**이용약관**: <https://dabinilab.com/terms/>
-**개인정보처리방침**: <https://dabinilab.com/privacy/>
-
 ${aiResult.content}`;
   } catch (error) {
     console.error("Error generating hello content:", error);
     const greeting =
       translations[defaultLanguage]?.greeting || "안녕! 난 다빈이야.";
     return `${greeting}
-
-**이용약관**: <https://dabinilab.com/terms/>
-**개인정보처리방침**: <https://dabinilab.com/privacy/>
 
 죄송합니다. 현재 AI 기능에 문제가 있습니다.`;
   }
@@ -84,7 +78,8 @@ async function handleApplicationCommand(interaction, res) {
 
         const responseContent = await generateHelloContent(
           sessionInfo.sessionId,
-          sessionInfo.speakerName
+          sessionInfo.speakerName,
+          sessionInfo.userId
         );
 
         await editDeferredResponse(interaction, responseContent);
@@ -93,9 +88,6 @@ async function handleApplicationCommand(interaction, res) {
         const greeting =
           translations[defaultLanguage]?.greeting || "안녕! 난 다빈이야.";
         const fallbackContent = `${greeting}
-
-**이용약관**: <https://dabinilab.com/terms/>
-**개인정보처리방침**: <https://dabinilab.com/privacy/>
 
 죄송합니다. 현재 AI 기능에 문제가 있습니다.`;
 
@@ -120,7 +112,8 @@ async function handleApplicationCommand(interaction, res) {
         const response = await processAIRequest(
           message,
           sessionInfo.sessionId,
-          sessionInfo.speakerName
+          sessionInfo.speakerName,
+          sessionInfo.userId
         );
 
         const result = await formatEngineResponseForInteraction(
@@ -380,16 +373,18 @@ function getSessionInfo(context) {
     context.channelId || context.channel?.id || context.channel_id;
   const sessionId = `discord-${channelId}`;
   const speakerName = context.member?.nick || context.member?.user?.username;
+  const userId = `discord-${context.member?.user?.id}`;
 
-  return { sessionId, speakerName };
+  return { sessionId, speakerName, userId };
 }
 
 // Common function to handle AI requests
-async function processAIRequest(userMessage, sessionId, speakerName) {
+async function processAIRequest(userMessage, sessionId, speakerName, userId) {
   const requestBody = {
     messages: [userMessage],
     session_id: sessionId,
     speaker_name: speakerName,
+    user_id: userId,
   };
 
   return await makeEngineRequest("/messages", "POST", requestBody);

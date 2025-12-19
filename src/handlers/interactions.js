@@ -140,8 +140,8 @@ async function handleApplicationCommand(interaction, res) {
     return;
   }
 
-  // Handle activate command
-  if (commandName === "activate") {
+  // Handle connect command
+  if (commandName === "connect") {
     // Defer the response immediately
     res.json({
       type: 5, // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
@@ -150,51 +150,51 @@ async function handleApplicationCommand(interaction, res) {
     // Handle the actual processing async
     setImmediate(async () => {
       try {
-        // Request activation code from engine
+        // Request connection code from engine
         const requestBody = {
           discord_user_id: interaction.member.user.id,
         };
 
         const response = await makeEngineRequest(
-          "/activation/discord",
+          "/connection/discord",
           "POST",
           requestBody
         );
 
-        // Extract activation code from response
-        const activationCode = response.data?.activation_code;
+        // Extract connection code from response
+        const connectionCode = response.data?.connection_code;
 
-        if (!activationCode) {
-          throw new Error("No activation code received from engine");
+        if (!connectionCode) {
+          throw new Error("No connection code received from engine");
         }
 
-        // Get activation base URL from Firebase Remote Config
-        const activationBaseUrl = await getRemoteConfigValue(
-          "ACTIVATION_URL",
-          "https://dabinilab.com/activation"
+        // Get connection base URL from Firebase Remote Config
+        const connectionBaseUrl = await getRemoteConfigValue(
+          "CONNECTION_URL",
+          "https://dabinilab.com/connection"
         );
-        const activationUrl = `${activationBaseUrl}/discord?code=${activationCode}`;
+        const connectionUrl = `${connectionBaseUrl}/discord?code=${connectionCode}`;
 
         // Support Korean and English based on user locale
         const isKorean = interaction.locale?.startsWith("ko");
         const message = isKorean
-          ? `다빈이 계정을 활성화하려면 아래 링크를 클릭하세요:\n${activationUrl}\n이 링크는 일정 시간 후 만료됩니다.`
-          : `Click the link below to activate your Dabini account:\n${activationUrl}\nThis link will expire after a certain period of time.`;
+          ? `다빈이 계정을 연결하려면 아래 링크를 클릭하세요:\n${connectionUrl}\n이 링크는 일정 시간 후 만료됩니다.`
+          : `Click the link below to connect your Dabini account:\n${connectionUrl}\nThis link will expire after a certain period of time.`;
 
         await editDeferredResponse(interaction, message);
       } catch (error) {
-        console.error("Error with activation command:", error);
+        console.error("Error with connection command:", error);
         await editDeferredResponse(
           interaction,
-          "Sorry. I can't generate an activation URL right now."
+          "Sorry. I can't generate a connection URL right now."
         );
       }
     });
     return;
   }
 
-  // Handle deactivate command
-  if (commandName === "deactivate") {
+  // Handle disconnect command
+  if (commandName === "disconnect") {
     // Defer the response immediately
     res.json({
       type: 5, // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
@@ -203,26 +203,26 @@ async function handleApplicationCommand(interaction, res) {
     // Handle the actual processing async
     setImmediate(async () => {
       try {
-        // Request deactivation from engine
+        // Request disconnection from engine
         const requestBody = {
           discord_user_id: interaction.member.user.id,
         };
 
-        await makeEngineRequest("/activation/discord", "DELETE", requestBody);
+        await makeEngineRequest("/connection/discord", "DELETE", requestBody);
 
         // Support Korean and English based on user locale
         const isKorean = interaction.locale?.startsWith("ko");
         const message = isKorean
-          ? "다빈이 계정이 비활성화되었습니다."
-          : "Your Dabini account has been deactivated.";
+          ? "다빈이 계정 연결이 해제되었습니다."
+          : "Your Dabini account has been disconnected.";
 
         await editDeferredResponse(interaction, message);
       } catch (error) {
-        console.error("Error with deactivate command:", error);
+        console.error("Error with disconnect command:", error);
         const isKorean = interaction.locale?.startsWith("ko");
         const errorMessage = isKorean
-          ? "죄송합니다. 지금은 비활성화 요청을 처리할 수 없습니다."
-          : "Sorry. I can't process the deactivation request right now.";
+          ? "죄송합니다. 지금은 연결 해제 요청을 처리할 수 없습니다."
+          : "Sorry. I can't process the disconnection request right now.";
         await editDeferredResponse(interaction, errorMessage);
       }
     });

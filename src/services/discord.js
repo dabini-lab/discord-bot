@@ -35,19 +35,19 @@ const commands = [
     ],
   },
   {
-    name: "activate",
-    description: "Activation for Dabini account",
+    name: "connect",
+    description: "Connection for Dabini account",
     description_localizations: {
-      ko: "다빈이 계정 활성화",
-      "en-US": "Activation for Dabini account",
+      ko: "다빈이 계정 연결",
+      "en-US": "Connection for Dabini account",
     },
   },
   {
-    name: "deactivate",
-    description: "Deactivation for Dabini account",
+    name: "disconnect",
+    description: "Disconnection for Dabini account",
     description_localizations: {
-      ko: "다빈이 계정 비활성화",
-      "en-US": "Deactivation for Dabini account",
+      ko: "다빈이 계정 연결 해제",
+      "en-US": "Disconnection for Dabini account",
     },
   },
   {

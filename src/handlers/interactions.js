@@ -162,7 +162,7 @@ async function handleApplicationCommand(interaction, res) {
         );
 
         // Extract connection code from response
-        const connectionCode = response.data?.connection_code;
+        const connectionCode = response.data?.code;
 
         if (!connectionCode) {
           throw new Error("No connection code received from engine");

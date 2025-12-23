@@ -5,11 +5,14 @@ import { translations, defaultLanguage } from "../translations.js";
 import { makeEngineRequest } from "../services/engine.js";
 import { getRemoteConfigValue } from "../config/firebase.js";
 
+// Constants for repeated messages
+const GREETING_DEFAULT = "👋 안녕! 난 다빈이야.";
+
 // Shared function to generate hello message content
 export async function generateHelloContent(sessionId, speakerName, userId) {
   try {
     const greeting =
-      translations[defaultLanguage]?.greeting || "안녕! 난 다빈이야.";
+      translations[defaultLanguage]?.greeting || GREETING_DEFAULT;
 
     // Get AI capabilities info
     const aiResponse = await processAIRequest(
@@ -32,7 +35,7 @@ ${aiResult.content}`;
   } catch (error) {
     console.error("Error generating hello content:", error);
     const greeting =
-      translations[defaultLanguage]?.greeting || "안녕! 난 다빈이야.";
+      translations[defaultLanguage]?.greeting || GREETING_DEFAULT;
     return `${greeting}
 
 죄송합니다. 현재 AI 기능에 문제가 있습니다.`;
@@ -86,7 +89,7 @@ async function handleApplicationCommand(interaction, res) {
       } catch (error) {
         console.error("Error with engine API in hello command:", error);
         const greeting =
-          translations[defaultLanguage]?.greeting || "안녕! 난 다빈이야.";
+          translations[defaultLanguage]?.greeting || GREETING_DEFAULT;
         const fallbackContent = `${greeting}
 
 죄송합니다. 현재 AI 기능에 문제가 있습니다.`;

@@ -145,9 +145,11 @@ async function handleApplicationCommand(interaction, res) {
 
   // Handle connect command
   if (commandName === "connect") {
-    // Defer the response immediately
     res.json({
       type: 5, // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
+      data: {
+        flags: 64, // EPHEMERAL - only visible to the user
+      },
     });
 
     // Handle the actual processing async
@@ -198,9 +200,11 @@ async function handleApplicationCommand(interaction, res) {
 
   // Handle disconnect command
   if (commandName === "disconnect") {
-    // Defer the response immediately
     res.json({
       type: 5, // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
+      data: {
+        flags: 64, // EPHEMERAL - only visible to the user
+      },
     });
 
     // Handle the actual processing async

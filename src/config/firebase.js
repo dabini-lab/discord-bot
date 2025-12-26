@@ -10,7 +10,7 @@ const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 
 // Default config values
 const defaultConfig = {
-  ACTIVATION_URL: "https://dabinilab.com/activation",
+  CONNECTION_URL: "https://dabinilab.com/connection",
 };
 
 // Initialize Firebase Admin SDK

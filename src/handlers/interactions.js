@@ -4,19 +4,22 @@
 import { translations, defaultLanguage } from "../translations.js";
 import { makeEngineRequest } from "../services/engine.js";
 import { getRemoteConfigValue } from "../config/firebase.js";
-import { splitMessage } from "../utils.js";
+
+// Constants for repeated messages
+const GREETING_DEFAULT = "👋 안녕! 난 다빈이야.";
 
 // Shared function to generate hello message content
-export async function generateHelloContent(sessionId, speakerName) {
+export async function generateHelloContent(sessionId, speakerName, userId) {
   try {
     const greeting =
-      translations[defaultLanguage]?.greeting || "안녕! 난 다빈이야.";
+      translations[defaultLanguage]?.greeting || GREETING_DEFAULT;
 
     // Get AI capabilities info
     const aiResponse = await processAIRequest(
       "너 뭐 할 수 있어? 예시와 함께 보여줘.",
       sessionId,
-      speakerName
+      speakerName,
+      userId
     );
 
     const aiResult = await formatEngineResponseForInteraction(
@@ -28,18 +31,12 @@ export async function generateHelloContent(sessionId, speakerName) {
 
     return `${greeting}
 
-**이용약관**: <https://dabinilab.com/terms/>
-**개인정보처리방침**: <https://dabinilab.com/privacy/>
-
 ${aiResult.content}`;
   } catch (error) {
     console.error("Error generating hello content:", error);
     const greeting =
-      translations[defaultLanguage]?.greeting || "안녕! 난 다빈이야.";
+      translations[defaultLanguage]?.greeting || GREETING_DEFAULT;
     return `${greeting}
-
-**이용약관**: <https://dabinilab.com/terms/>
-**개인정보처리방침**: <https://dabinilab.com/privacy/>
 
 죄송합니다. 현재 AI 기능에 문제가 있습니다.`;
   }
@@ -84,18 +81,16 @@ async function handleApplicationCommand(interaction, res) {
 
         const responseContent = await generateHelloContent(
           sessionInfo.sessionId,
-          sessionInfo.speakerName
+          sessionInfo.speakerName,
+          sessionInfo.userId
         );
 
         await editDeferredResponse(interaction, responseContent);
       } catch (error) {
         console.error("Error with engine API in hello command:", error);
         const greeting =
-          translations[defaultLanguage]?.greeting || "안녕! 난 다빈이야.";
+          translations[defaultLanguage]?.greeting || GREETING_DEFAULT;
         const fallbackContent = `${greeting}
-
-**이용약관**: <https://dabinilab.com/terms/>
-**개인정보처리방침**: <https://dabinilab.com/privacy/>
 
 죄송합니다. 현재 AI 기능에 문제가 있습니다.`;
 
@@ -120,7 +115,8 @@ async function handleApplicationCommand(interaction, res) {
         const response = await processAIRequest(
           message,
           sessionInfo.sessionId,
-          sessionInfo.speakerName
+          sessionInfo.speakerName,
+          sessionInfo.userId
         );
 
         const result = await formatEngineResponseForInteraction(
@@ -147,61 +143,101 @@ async function handleApplicationCommand(interaction, res) {
     return;
   }
 
-  // Handle activation command
-  if (commandName === "activation") {
-    // Defer the response immediately
+  // Handle connect command
+  if (commandName === "connect") {
     res.json({
       type: 5, // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
+      data: {
+        flags: 64, // EPHEMERAL - only visible to the user
+      },
     });
 
     // Handle the actual processing async
     setImmediate(async () => {
       try {
-        // Request activation code from engine
+        // Request connection code from engine
         const requestBody = {
           discord_user_id: interaction.member.user.id,
         };
 
         const response = await makeEngineRequest(
-          "/activation/discord",
+          "/connection/discord",
           "POST",
           requestBody
         );
 
-        // Extract activation code from response
-        const activationCode = response.data?.activation_code;
+        // Extract connection code from response
+        const connectionCode = response.data?.code;
 
-        if (!activationCode) {
-          throw new Error("No activation code received from engine");
+        if (!connectionCode) {
+          throw new Error("No connection code received from engine");
         }
 
-        // Get activation base URL from Firebase Remote Config
-        const activationBaseUrl = await getRemoteConfigValue(
-          "ACTIVATION_URL",
-          "https://dabinilab.com/activation"
+        // Get connection base URL from Firebase Remote Config
+        const connectionBaseUrl = await getRemoteConfigValue(
+          "CONNECTION_URL",
+          "https://dabinilab.com/connection"
         );
-        const activationUrl = `${activationBaseUrl}/discord?code=${activationCode}`;
+        const connectionUrl = `${connectionBaseUrl}/discord?code=${connectionCode}`;
 
         // Support Korean and English based on user locale
         const isKorean = interaction.locale?.startsWith("ko");
         const message = isKorean
-          ? `다빈이 계정을 활성화하려면 아래 링크를 클릭하세요:\n${activationUrl}\n이 링크는 일정 시간 후 만료됩니다.`
-          : `Click the link below to activate your Dabini account:\n${activationUrl}\nThis link will expire after a certain period of time.`;
+          ? `다빈이 계정을 연결하려면 아래 링크를 클릭하세요:\n${connectionUrl}\n이 링크는 일정 시간 후 만료됩니다.`
+          : `Click the link below to connect your Dabini account:\n${connectionUrl}\nThis link will expire after a certain period of time.`;
 
         await editDeferredResponse(interaction, message);
       } catch (error) {
-        console.error("Error with activation command:", error);
+        console.error("Error with connection command:", error);
         await editDeferredResponse(
           interaction,
-          "Sorry. I can't generate an activation URL right now."
+          "Sorry. I can't generate a connection URL right now."
         );
       }
     });
     return;
   }
 
-  // Handle image-generation command
-  if (commandName === "image-generation") {
+  // Handle disconnect command
+  if (commandName === "disconnect") {
+    res.json({
+      type: 5, // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
+      data: {
+        flags: 64, // EPHEMERAL - only visible to the user
+      },
+    });
+
+    // Handle the actual processing async
+    setImmediate(async () => {
+      try {
+        // Request disconnection from engine
+        const requestBody = {
+          discord_user_id: interaction.member.user.id,
+        };
+
+        await makeEngineRequest("/connection/discord", "DELETE", requestBody);
+
+        // Support Korean and English based on user locale
+        const isKorean = interaction.locale?.startsWith("ko");
+        const message = isKorean
+          ? "다빈이 계정 연결이 해제되었습니다."
+          : "Your Dabini account has been disconnected.";
+
+        await editDeferredResponse(interaction, message);
+      } catch (error) {
+        console.error("Error with disconnect command:", error);
+        const isKorean = interaction.locale?.startsWith("ko");
+        const errorMessage = isKorean
+          ? "죄송합니다. 지금은 연결 해제 요청을 처리할 수 없습니다."
+          : "Sorry. I can't process the disconnection request right now.";
+        await editDeferredResponse(interaction, errorMessage);
+      }
+    });
+    return;
+  }
+
+  // Handle image-gen command
+  if (commandName === "image-gen") {
     // Defer the response immediately
     res.json({
       type: 5, // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
@@ -344,16 +380,18 @@ function getSessionInfo(context) {
     context.channelId || context.channel?.id || context.channel_id;
   const sessionId = `discord-${channelId}`;
   const speakerName = context.member?.nick || context.member?.user?.username;
+  const userId = `discord-${context.member?.user?.id}`;
 
-  return { sessionId, speakerName };
+  return { sessionId, speakerName, userId };
 }
 
 // Common function to handle AI requests
-async function processAIRequest(userMessage, sessionId, speakerName) {
+async function processAIRequest(userMessage, sessionId, speakerName, userId) {
   const requestBody = {
     messages: [userMessage],
     session_id: sessionId,
     speaker_name: speakerName,
+    user_id: userId,
   };
 
   return await makeEngineRequest("/messages", "POST", requestBody);

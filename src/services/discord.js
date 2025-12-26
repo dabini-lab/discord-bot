@@ -35,15 +35,23 @@ const commands = [
     ],
   },
   {
-    name: "activation",
-    description: "Activation for Dabini account",
+    name: "connect",
+    description: "Connection for Dabini account",
     description_localizations: {
-      ko: "다빈이 계정 활성화",
-      "en-US": "Activation for Dabini account",
+      ko: "다빈이 계정 연결",
+      "en-US": "Connection for Dabini account",
     },
   },
   {
-    name: "image-generation",
+    name: "disconnect",
+    description: "Disconnection for Dabini account",
+    description_localizations: {
+      ko: "다빈이 계정 연결 해제",
+      "en-US": "Disconnection for Dabini account",
+    },
+  },
+  {
+    name: "image-gen",
     description: "Generate an image with AI",
     description_localizations: {
       ko: "이미지 생성",
